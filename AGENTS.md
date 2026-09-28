@@ -159,10 +159,23 @@ grey-box outcome — "aiming should be side to side only"):
   in the chain and turbo fires: the world at turboScrollScale and the
   chase clock REWINDING (turboEscapeScale) — you catch the quarry.
   Missing any pad breaks the chain.
-- The UFO is bigger and spawns closer (skimmerSpawnDepth). Hits flash
-  the hull white and deplete red hp pips over the dome. Incoming junk
-  announces itself with a green radar ping pulsing at the near end of
-  its lane until the piece is halfway in (junkPingDepth).
+- The UFO is bigger still, spawns closer (skimmerSpawnDepth), and
+  SPINS (running lights slide across the band). Hits flash the hull
+  white and deplete red hp pips over the dome. Its return fire is
+  telegraphed (boltTelegraphSeconds of orange strobing before the
+  shot), slower (boltDepthPerSecond), and narrower than your shot
+  (boltHitWidth), so the answer is a hop timed in place. Incoming junk
+  is caught by a green radar crosshair flashing ON the piece until it
+  is halfway in (junkPingDepth).
+- The train read: cockpit frame pillars and a dashboard band around
+  the screen, a headlight cone from the pod down the dark tube, wall
+  conduits running the bore's length, four light-ring fixtures, and
+  stations every Tuning.stationIntervalSeconds as real platforms:
+  slab, lit window row, pillars, pulsing sign. The hull carries its
+  own shield pips (podShieldPips) as asked, alongside the glass HUD.
+- Turbo gates are big, green, pulsing, and spawn one at a time from
+  the mouth (turboPadGapSeconds apart) so the chain reads as a
+  pattern to ride.
 - Junk sits on lanes only, closes at your forward speed (doubled
   railed), stuns on contact (controls cut, hard gravity to the floor
   rail, fire disabled) and derails; jump it, shoot it, or wear it.

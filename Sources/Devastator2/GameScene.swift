@@ -26,7 +26,7 @@ final class GameScene: SKScene {
 
     private struct Junk {
         let node: SKSpriteNode
-        let ping: SKShapeNode
+        let marker: SKShapeNode
         let rail: Int
         let size: CGSize
         let tilt: CGFloat
@@ -126,6 +126,12 @@ final class GameScene: SKScene {
     private var turboChainBroken = false
     private var turboCountdown: TimeInterval = 0
     private var turboRemaining: TimeInterval = 0
+    private var turboChainRemaining = 0
+    private var turboChainLane = 0
+    private var turboPadGapCountdown: TimeInterval = 0
+    private var boltTelegraphed = false
+    private var podShieldPips: [SKSpriteNode] = []
+    private let headlight = SKShapeNode()
 
     private var walls: [Wall] = []
     private var perimeterLength: CGFloat = 0
@@ -432,6 +438,24 @@ final class GameScene: SKScene {
             mark.zRotation = frame.wall.rotation
             mark.alpha = Tuning.grungeAlpha
             addChild(mark)
+        }
+
+        // conduits: cabling running the length of the side walls
+        for (i, w) in walls.enumerated() where i != Tuning.railCount / 2 {
+            for frac in Tuning.conduitFractions {
+                let t = (w.start + frac * w.length) / perimeterLength
+                let frame = wallFrame(at: t)
+                let near = CGPoint(x: frame.point.x + frame.wall.normal.dx,
+                                   y: frame.point.y + frame.wall.normal.dy)
+                let line = CGMutablePath()
+                line.move(to: near)
+                line.addLine(to: projectPoint(near, 0).point)
+                let conduit = SKShapeNode(path: line)
+                conduit.strokeColor = Palette.edgeLight
+                conduit.lineWidth = Tuning.strokeWidth / 2
+                conduit.alpha = Tuning.conduitAlpha
+                addChild(conduit)
+            }
         }
 
         // light strips running each rail from the near arc into the mouth
@@ -747,6 +771,40 @@ final class GameScene: SKScene {
         skimmer.size = Tuning.skimmerSize
         addChild(skimmer)
 
+        // the cockpit: you are riding IN something. Frame pillars and a
+        // dashboard band
+        for side: CGFloat in [0, 1] {
+            let pillar = SKSpriteNode(color: Palette.rockBody,
+                                      size: CGSize(width: Tuning.cockpitPillarWidth,
+                                                   height: size.height))
+            pillar.position = CGPoint(
+                x: side == 0 ? Tuning.cockpitPillarWidth / 2
+                             : size.width - Tuning.cockpitPillarWidth / 2,
+                y: size.height / 2)
+            pillar.zPosition = 2.8
+            addChild(pillar)
+            let trim = SKSpriteNode(color: Palette.edgeLight,
+                                    size: CGSize(width: 1, height: size.height))
+            trim.position = CGPoint(
+                x: side == 0 ? Tuning.cockpitPillarWidth : size.width - Tuning.cockpitPillarWidth,
+                y: size.height / 2)
+            trim.alpha = 0.4
+            trim.zPosition = 2.8
+            addChild(trim)
+        }
+        let dash = SKSpriteNode(color: Palette.rockBody,
+                                size: CGSize(width: size.width,
+                                             height: Tuning.dashboardHeight))
+        dash.position = CGPoint(x: centerX, y: Tuning.dashboardHeight / 2)
+        dash.zPosition = 2.8
+        addChild(dash)
+        let dashTrim = SKSpriteNode(color: Palette.edgeLight,
+                                    size: CGSize(width: size.width, height: 1))
+        dashTrim.position = CGPoint(x: centerX, y: Tuning.dashboardHeight)
+        dashTrim.alpha = 0.4
+        dashTrim.zPosition = 2.8
+        addChild(dashTrim)
+
         // the P1 and P2 score readouts, bottom corners of the dashboard
         p1ScoreLabel.fontName = "Menlo-Bold"
         p1ScoreLabel.fontSize = Tuning.scoreFontSize
@@ -791,6 +849,28 @@ final class GameScene: SKScene {
         engineGlow.blendMode = .add
         engineGlow.isHidden = true
         pod.addChild(engineGlow)
+
+        // shield pips riding the hull itself
+        for i in 0..<Tuning.hullPickupCap {
+            let pip = SKSpriteNode(color: Palette.shieldGreen,
+                                   size: Tuning.podShieldPipSize)
+            let span = CGFloat(Tuning.hullPickupCap - 1)
+                * (Tuning.podShieldPipSize.width + Tuning.podShieldPipGap)
+            pip.position = CGPoint(
+                x: -span / 2 + CGFloat(i)
+                    * (Tuning.podShieldPipSize.width + Tuning.podShieldPipGap),
+                y: Tuning.podSize.height / 2 + Tuning.podShieldPipRise)
+            pod.addChild(pip)
+            podShieldPips.append(pip)
+        }
+
+        // the headlight: a soft cone pushing down the dark tube
+        headlight.fillColor = Palette.ufoGlint
+        headlight.strokeColor = .clear
+        headlight.alpha = Tuning.headlightAlpha
+        headlight.blendMode = .add
+        headlight.zPosition = 0.3
+        addChild(headlight)
     }
 
     // MARK: loop
@@ -824,10 +904,20 @@ final class GameScene: SKScene {
             spawnTurboChain()
             turboCountdown = Tuning.turboChainIntervalSeconds
         }
+        // gates arrive one by one, each a lane over from the last
+        if turboChainRemaining > 0 {
+            turboPadGapCountdown -= dt
+            if turboPadGapCountdown <= 0 {
+                spawnTurboPad(lane: turboChainLane, isLast: turboChainRemaining == 1)
+                let step = Bool.random() ? 1 : -1
+                turboChainLane = min(Tuning.railCount - 1, max(0, turboChainLane + step))
+                turboChainRemaining -= 1
+                turboPadGapCountdown = Tuning.turboPadGapSeconds
+            }
+        }
         for i in turboPads.indices {
             turboPads[i].depth += dt * Tuning.trackScrollPerSecond * forwardScale
             let pad = turboPads[i]
-            pad.node.isHidden = pad.depth < 0
             if pad.depth >= 1 {
                 let onPad = laneDistance(railTs[pad.rail], podT)
                     <= Tuning.laneHitWidth && podAirRemaining <= 0 && bigJump == nil
@@ -842,7 +932,7 @@ final class GameScene: SKScene {
                     turboChainBroken = true
                 }
                 pad.node.removeFromParent()
-            } else if pad.depth > 0 {
+            } else {
                 placeOnWall(pad.node, t: railTs[pad.rail], depth: pad.depth,
                             height: Tuning.turboPadSize.height / 2)
             }
@@ -852,25 +942,27 @@ final class GameScene: SKScene {
 
     private func spawnTurboChain() {
         turboChainBroken = false
-        var lane = Int.random(in: 0..<Tuning.railCount)
-        for i in 0..<Tuning.turboChainLength {
-            let node = SKShapeNode(rectOf: Tuning.turboPadSize,
-                                   cornerRadius: Tuning.turboPadSize.height / 2)
-            node.fillColor = Palette.railHot
-            node.strokeColor = Palette.ufoGlint
-            node.lineWidth = Tuning.strokeWidth / 2
-            node.glowWidth = Tuning.railGlowWidth
-            node.blendMode = .add
-            node.zPosition = 0.7
-            node.isHidden = true
-            addChild(node)
-            turboPads.append(TurboPad(node: node, rail: lane,
-                                      isLast: i == Tuning.turboChainLength - 1,
-                                      depth: -Double(i) * Tuning.turboPadDepthGap))
-            // the chain switches lanes each gate
-            let step = Bool.random() ? 1 : -1
-            lane = min(Tuning.railCount - 1, max(0, lane + step))
-        }
+        turboChainLane = Int.random(in: 0..<Tuning.railCount)
+        turboChainRemaining = Tuning.turboChainLength
+        turboPadGapCountdown = 0
+    }
+
+    // a turbo gate: big, green, pulsing GO
+    private func spawnTurboPad(lane: Int, isLast: Bool) {
+        let node = SKShapeNode(rectOf: Tuning.turboPadSize,
+                               cornerRadius: Tuning.turboPadSize.height / 2)
+        node.fillColor = Palette.shieldGreen
+        node.strokeColor = Palette.ufoGlint
+        node.lineWidth = Tuning.strokeWidth / 2
+        node.glowWidth = Tuning.railGlowWidth * 2
+        node.blendMode = .add
+        node.zPosition = 0.7
+        node.run(.repeatForever(.sequence([
+            .fadeAlpha(to: 0.55, duration: 0.25),
+            .fadeAlpha(to: 1, duration: 0.25),
+        ])))
+        addChild(node)
+        turboPads.append(TurboPad(node: node, rail: lane, isLast: isLast, depth: 0))
     }
 
     private func stepRings(_ dt: TimeInterval) {
@@ -907,21 +999,41 @@ final class GameScene: SKScene {
         stations.removeAll { $0.depth >= 1 }
     }
 
-    // a transit stop sliding past: platform slab, window band, lit sign
+    // a transit stop sliding past: a real platform. Slab, lit window row,
+    // pillars, a glowing sign; a burst of station in the dark
     private func spawnStation() {
         let node = SKNode()
         node.zPosition = 0.5
         let slab = SKSpriteNode(color: Palette.surface, size: Tuning.stationSlabSize)
         slab.position = CGPoint(x: 0, y: Tuning.stationSlabSize.height / 2)
         node.addChild(slab)
-        let windows = SKSpriteNode(color: Palette.ufoGlass, size: Tuning.stationWindowSize)
-        windows.position = CGPoint(x: 0, y: Tuning.stationSlabSize.height
-                                   + Tuning.stationWindowSize.height / 2)
-        node.addChild(windows)
+        let windowSpan = Tuning.stationSlabSize.width * 0.8
+        for i in 0..<Tuning.stationWindowCount {
+            let window = SKSpriteNode(color: Palette.ufoGlass,
+                                      size: Tuning.stationWindowSize)
+            window.position = CGPoint(
+                x: -windowSpan / 2 + windowSpan
+                    * CGFloat(i) / CGFloat(Tuning.stationWindowCount - 1),
+                y: Tuning.stationSlabSize.height + Tuning.stationWindowSize.height / 2 + 1)
+            window.blendMode = .add
+            node.addChild(window)
+        }
+        for sign: CGFloat in [-1, 1] {
+            let pillar = SKSpriteNode(color: Palette.upperPanel,
+                                      size: Tuning.stationPillarSize)
+            pillar.position = CGPoint(x: sign * Tuning.stationSlabSize.width * 0.42,
+                                      y: Tuning.stationSlabSize.height
+                                          + Tuning.stationPillarSize.height / 2)
+            node.addChild(pillar)
+        }
         let sign = SKSpriteNode(color: Palette.railHot, size: Tuning.stationSignSize)
         sign.blendMode = .add
-        sign.position = CGPoint(x: Tuning.stationSlabSize.width / 2,
-                                y: Tuning.stationSlabSize.height * 2)
+        sign.position = CGPoint(x: 0, y: Tuning.stationSlabSize.height
+                                    + Tuning.stationPillarSize.height)
+        sign.run(.repeatForever(.sequence([
+            .fadeAlpha(to: 0.5, duration: 0.6),
+            .fadeAlpha(to: 1, duration: 0.6),
+        ])))
         node.addChild(sign)
         addChild(node)
         let wall = Int.random(in: 0..<Tuning.railCount)
@@ -946,6 +1058,9 @@ final class GameScene: SKScene {
         }
         for (i, pip) in hullPips.enumerated() {
             pip.alpha = i < hull ? 1 : 0.15
+        }
+        for (i, pip) in podShieldPips.enumerated() {
+            pip.alpha = i < hull ? 1 : 0.12
         }
         for (i, pip) in gunPips.enumerated() {
             pip.alpha = i < gunLevel ? 1 : 0.15
@@ -1174,8 +1289,10 @@ final class GameScene: SKScene {
                 placeOnWall(piece.node, t: railTs[piece.rail], depth: piece.progress,
                             height: piece.size.height)
                 piece.node.zRotation += piece.tilt
-                if piece.progress > Tuning.junkPingDepth, piece.ping.parent != nil {
-                    piece.ping.removeFromParent()
+                if piece.progress > Tuning.junkPingDepth {
+                    if piece.marker.parent != nil { piece.marker.removeFromParent() }
+                } else {
+                    piece.marker.position = piece.node.position
                 }
             }
         }
@@ -1192,22 +1309,30 @@ final class GameScene: SKScene {
         node.size = junkSize
         addChild(node)
         let tilt = CGFloat.random(in: -Tuning.junkTiltRange...Tuning.junkTiltRange)
-        // radar ping: a green pulse at the near end of the junk's lane
-        let frame = wallFrame(at: railTs[rail])
-        let ping = SKShapeNode(circleOfRadius: Tuning.junkPingRadius)
-        ping.position = CGPoint(x: frame.point.x + frame.wall.normal.dx * Tuning.junkPingRadius,
-                                y: frame.point.y + frame.wall.normal.dy * Tuning.junkPingRadius)
-        ping.strokeColor = Palette.shieldGreen
-        ping.fillColor = .clear
-        ping.lineWidth = Tuning.strokeWidth
-        ping.glowWidth = Tuning.tracerGlowWidth
-        ping.zPosition = 1.4
-        ping.run(.repeatForever(.sequence([
-            .group([.scale(to: 1.4, duration: 0.35), .fadeAlpha(to: 0.2, duration: 0.35)]),
-            .group([.scale(to: 0.7, duration: 0.35), .fadeAlpha(to: 1, duration: 0.35)]),
+        // radar catch: a green crosshair flashing on the junk itself
+        let r = Tuning.junkMarkerRadius
+        let marker = SKShapeNode()
+        let mp = CGMutablePath()
+        mp.addEllipse(in: CGRect(x: -r * 0.7, y: -r * 0.7, width: r * 1.4, height: r * 1.4))
+        mp.move(to: CGPoint(x: -r, y: 0))
+        mp.addLine(to: CGPoint(x: -r * 0.5, y: 0))
+        mp.move(to: CGPoint(x: r * 0.5, y: 0))
+        mp.addLine(to: CGPoint(x: r, y: 0))
+        mp.move(to: CGPoint(x: 0, y: -r))
+        mp.addLine(to: CGPoint(x: 0, y: -r * 0.5))
+        mp.move(to: CGPoint(x: 0, y: r * 0.5))
+        mp.addLine(to: CGPoint(x: 0, y: r))
+        marker.path = mp
+        marker.strokeColor = Palette.shieldGreen
+        marker.lineWidth = Tuning.strokeWidth
+        marker.glowWidth = Tuning.tracerGlowWidth
+        marker.zPosition = 1.7
+        marker.run(.repeatForever(.sequence([
+            .fadeAlpha(to: 0.25, duration: 0.2),
+            .fadeAlpha(to: 1, duration: 0.2),
         ])))
-        addChild(ping)
-        junkPieces.append(Junk(node: node, ping: ping, rail: rail, size: junkSize,
+        addChild(marker)
+        junkPieces.append(Junk(node: node, marker: marker, rail: rail, size: junkSize,
                                tilt: tilt, progress: 0))
         placeOnWall(node, t: railTs[rail], depth: 0, height: junkSize.height)
         node.zRotation += tilt
@@ -1227,7 +1352,7 @@ final class GameScene: SKScene {
             }
             if !cleared { damagePod() }
         }
-        piece.ping.removeFromParent()
+        piece.marker.removeFromParent()
         piece.node.run(.sequence([.fadeOut(withDuration: Tuning.junkFadeSeconds),
                                   .removeFromParent()]))
     }
@@ -1289,11 +1414,25 @@ final class GameScene: SKScene {
             hopCountdown -= dt
             if hopCountdown <= 0 { startHop() }
         }
-        // return fire: a rail-gun bolt straight down its lane
+        // return fire: telegraphed, then a rail-gun bolt straight down its lane
         if hopTarget == nil {
             shootCountdown -= dt
+            if shootCountdown <= Tuning.boltTelegraphSeconds, !boltTelegraphed {
+                boltTelegraphed = true
+                skimmer.run(.sequence([
+                    .colorize(with: Palette.enemyEngine, colorBlendFactor: 0.6,
+                              duration: Tuning.boltTelegraphSeconds / 3),
+                    .colorize(withColorBlendFactor: 0,
+                              duration: Tuning.boltTelegraphSeconds / 3),
+                    .colorize(with: Palette.enemyEngine, colorBlendFactor: 0.6,
+                              duration: Tuning.boltTelegraphSeconds / 6),
+                    .colorize(withColorBlendFactor: 0,
+                              duration: Tuning.boltTelegraphSeconds / 6),
+                ]))
+            }
             if shootCountdown <= 0 {
                 fireBolt()
+                boltTelegraphed = false
                 shootCountdown = Tuning.skimmerShootIntervalSeconds
                     + .random(in: 0...Tuning.skimmerShootJitterSeconds)
             }
@@ -1324,8 +1463,8 @@ final class GameScene: SKScene {
             bolts[i].depth += dt * Tuning.boltDepthPerSecond
             let bolt = bolts[i]
             if bolt.depth >= 1 {
-                // a bolt hugs its rail; any air clears it
-                if laneDistance(bolt.t, podT) <= Tuning.laneHitWidth,
+                // a bolt hugs its rail; any air clears it, and grazes miss
+                if laneDistance(bolt.t, podT) <= Tuning.boltHitWidth,
                    podAirRemaining <= 0, bigJump == nil, invulnRemaining <= 0 {
                     damagePod()
                 }
@@ -1335,7 +1474,7 @@ final class GameScene: SKScene {
                 let anchor = CGPoint(x: frame.point.x + frame.wall.normal.dx * 3,
                                      y: frame.point.y + frame.wall.normal.dy * 3)
                 let head = projectPoint(anchor, bolt.depth).point
-                let tail = projectPoint(anchor, min(1, bolt.depth + 0.05)).point
+                let tail = projectPoint(anchor, min(1, bolt.depth + Tuning.boltDashDepth)).point
                 let path = CGMutablePath()
                 path.move(to: head)
                 path.addLine(to: tail)
@@ -1448,6 +1587,24 @@ final class GameScene: SKScene {
             skimmerHpPips.append(pip)
         }
         shootCountdown = Tuning.skimmerShootIntervalSeconds
+        boltTelegraphed = false
+        // the frisbee spin: running lights sliding across the band
+        for i in 0..<Tuning.spinDotCount {
+            let dot = SKSpriteNode(color: Palette.ufoLight, size: Tuning.spinDotSize)
+            let travel = Tuning.skimmerSize.width * 0.7
+            let phase = Double(i) / Double(Tuning.spinDotCount)
+            dot.position = CGPoint(x: -travel / 2 + travel * CGFloat(phase), y: -2)
+            dot.blendMode = .add
+            let remain = Tuning.spinSeconds * (1 - phase)
+            dot.run(.sequence([
+                .moveTo(x: travel / 2, duration: remain),
+                .repeatForever(.sequence([
+                    .moveTo(x: -travel / 2, duration: 0),
+                    .moveTo(x: travel / 2, duration: Tuning.spinSeconds),
+                ])),
+            ]))
+            skimmer.addChild(dot)
+        }
         skimmerAlive = true
         placeOnWall(skimmer, t: skimmerT, depth: Tuning.skimmerSpawnDepth,
                     height: Tuning.skimmerSize.height)
@@ -1562,6 +1719,13 @@ final class GameScene: SKScene {
         path.move(to: near)
         path.addLine(to: far)
         sightBeam.path = path
+        // the headlight cone rides with the pod
+        let halfW = Tuning.headlightHalfWidth / perimeterLength
+        let cone = CGMutablePath()
+        cone.addLines(between: [wallFrame(at: podT - halfW).point,
+                                wallFrame(at: podT + halfW).point, far])
+        cone.closeSubpath()
+        headlight.path = cone
         farSight.position = far
         let junkInLine = junkPieces.contains {
             laneDistance(railTs[$0.rail], podT) <= Tuning.laneHitWidth
@@ -1593,7 +1757,7 @@ final class GameScene: SKScene {
         where laneDistance(railTs[piece.rail], podT) <= Tuning.laneHitWidth {
             spark(at: piece.node.position, radius: Tuning.sparkRadius)
             piece.node.removeFromParent()
-            piece.ping.removeFromParent()
+            piece.marker.removeFromParent()
         }
         junkPieces.removeAll { laneDistance(railTs[$0.rail], podT) <= Tuning.laneHitWidth }
         if skimmerInLine { hitSkimmer(gunLevel) }
@@ -1613,7 +1777,7 @@ final class GameScene: SKScene {
         for piece in junkPieces {
             spark(at: piece.node.position, radius: Tuning.sparkRadius)
             piece.node.removeFromParent()
-            piece.ping.removeFromParent()
+            piece.marker.removeFromParent()
         }
         junkPieces.removeAll()
         for bolt in bolts { bolt.node.removeFromParent() }

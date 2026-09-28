@@ -6,7 +6,7 @@ import CoreGraphics
 enum Tuning {
     // presentation
     static let sceneSize = CGSize(width: 512, height: 384) // 2x DS internal resolution
-    static let windowSize = CGSize(width: 1024, height: 768)
+    static let windowSize = CGSize(width: 1280, height: 960)
 
     // heritage rules
     static let passClockSeconds = 10.0
@@ -51,7 +51,7 @@ enum Tuning {
     static let junkClearanceFactor: CGFloat = 1.0
     static let bigJumpSeconds = 0.75
     static let bigJumpHeight: CGFloat = 52 // the vertical big jump off the floor
-    static let bigJumpSloMo = 0.35 // world rate while airborne on a big jump
+    static let bigJumpSloMo = 0.6 // world rate while airborne on a big jump
 
     // the quarry: rides the rails, runs for the far mouth, and shoots back
     static let skimmerSpawnDepth = 0.92 // how close ahead it starts: big
@@ -68,12 +68,18 @@ enum Tuning {
     static let hpPipRise: CGFloat = 7
     static let skimmerShootIntervalSeconds = 2.8
     static let skimmerShootJitterSeconds = 1.4
-    static let boltDepthPerSecond = 1.3 // rail-gun return fire closing speed
+    static let boltDepthPerSecond = 0.8 // slow enough to jump in place
+    static let boltTelegraphSeconds = 0.45 // the saucer glows before it fires
+    static let boltHitWidth: CGFloat = 26 // narrower than your shot: grazes miss
+    static let boltDashDepth = 0.08
+    static let spinDotCount = 3 // running lights sliding across: the spin
+    static let spinSeconds = 1.2
+    static let spinDotSize = CGSize(width: 5, height: 3)
 
     // level-ups, shields, and point chips splatter the lanes; catch them
     // on the ground
-    static let pickupFirstSeconds = 4.0
-    static let pickupIntervalSeconds = 6.0
+    static let pickupFirstSeconds = 3.0
+    static let pickupIntervalSeconds = 4.0
     static let pickupSize = CGSize(width: 12, height: 12)
     static let gunLevelMax = 3 // damage per shot
     static let hullPickupCap = 5
@@ -87,8 +93,8 @@ enum Tuning {
     // you overtake the quarry
     static let turboChainLength = 4
     static let turboChainIntervalSeconds = 14.0
-    static let turboPadDepthGap = 0.22 // arrival spacing inside a chain
-    static let turboPadSize = CGSize(width: 26, height: 8)
+    static let turboPadGapSeconds = 0.8 // arrival spacing inside a chain
+    static let turboPadSize = CGSize(width: 46, height: 12)
     static let turboSeconds = 3.5
     static let turboScrollScale = 3.0 // the world at full sprint
     static let turboEscapeScale = -0.4 // the chase clock rewinds: you gain
@@ -104,13 +110,16 @@ enum Tuning {
 
     // actors, scene points
     static let podSize = CGSize(width: 28, height: 16)
-    static let skimmerSize = CGSize(width: 56, height: 26)
+    static let skimmerSize = CGSize(width: 68, height: 32)
+    static let podShieldPipSize = CGSize(width: 4, height: 4) // hull, on the hull
+    static let podShieldPipGap: CGFloat = 2
+    static let podShieldPipRise: CGFloat = 5
     static let junkScaleMin: CGFloat = 1.0 // debris size spread around its art size
     static let junkScaleMax: CGFloat = 2.0
     static let junkSpawnSeconds = 2.4
     static let respawnDelaySeconds = 0.6
-    static let junkPingRadius: CGFloat = 7 // green radar pulse marking the lane
-    static let junkPingDepth = 0.5 // the ping lives while the junk is far
+    static let junkMarkerRadius: CGFloat = 12 // radar crosshair caught on the junk
+    static let junkPingDepth = 0.5 // the marker lives while the junk is far
 
     // the hull: junk costs one pip; empty resets with a grace flash
     static let hullMax = 3
@@ -204,16 +213,26 @@ enum Tuning {
     static let stripeAlphaBase: CGFloat = 0.05
     static let stripeAlphaGain: CGFloat = 0.18
 
+    // the train read: a cockpit frame, a headlight, conduits down the walls
+    static let cockpitPillarWidth: CGFloat = 10
+    static let dashboardHeight: CGFloat = 18
+    static let conduitFractions: [CGFloat] = [0.3, 0.7] // cabling per wall span
+    static let conduitAlpha: CGFloat = 0.15
+    static let headlightHalfWidth: CGFloat = 24
+    static let headlightAlpha: CGFloat = 0.05
+
     // tunnel fixtures: bright light rings sweeping past, and station stops
-    static let lightRingCount = 2
+    static let lightRingCount = 4
     static let lightRingWidth: CGFloat = 2.5
     static let lightRingAlphaBase: CGFloat = 0.2
     static let lightRingAlphaGain: CGFloat = 0.8
-    static let stationFirstSeconds = 3.0
-    static let stationIntervalSeconds = 9.0
-    static let stationSlabSize = CGSize(width: 80, height: 10)
-    static let stationWindowSize = CGSize(width: 64, height: 4)
-    static let stationSignSize = CGSize(width: 12, height: 5)
+    static let stationFirstSeconds = 2.0
+    static let stationIntervalSeconds = 7.0
+    static let stationSlabSize = CGSize(width: 120, height: 12)
+    static let stationWindowSize = CGSize(width: 10, height: 6)
+    static let stationWindowCount = 5
+    static let stationPillarSize = CGSize(width: 4, height: 22)
+    static let stationSignSize = CGSize(width: 16, height: 8)
 
     // the glass canopy over the roof slot, and the HUD projected on it
     static let glassBandHeight: CGFloat = 12
