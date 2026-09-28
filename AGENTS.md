@@ -66,69 +66,62 @@ passes, roughly in order: brink-time danger reddening, level palette
 themes, diegetic score/state readouts, cut-scene beats, music through
 AVAudioEngine per Assets/Music/MANIFEST.md, pads via GameController.
 
-Controls: arrows aim, space fires, double-tap up hops, double-tap down
-slam-locks or clunks off, Q quits.
+Controls: left/right move around the ring, space fires down the tube,
+double-tap up hops, double-tap down spikes in or clunks off, Q quits.
 
-Settled gameplay (the grey-box outcome):
+Settled gameplay (the TUBE model, the owner's revision of the
+grey-box outcome — "aiming should be side to side only"):
 
-- The world model (owner's spec): you are slotted into a trench on the
-  moon with three hot rails; the bad guys are in the same slot, on the
-  same rails, and they do not fly; junk is stationary wreckage sitting
-  on the tracks. One perspective serves everything: GameScene.project
-  maps a lane position and a depth to a screen point converging on the
-  horizon (trench center at rim height) and a scale — far is small,
-  near is big (Tuning.farPointScale, Tuning.depthExponent). The view
-  stays 2D rear-forward ("not the 3d rendering, just the two-d").
-- Stationary junk closes at the pod's forward speed
-  (Tuning.trackScrollPerSecond), doubled while railed: going fast
-  makes the wreckage loom twice as fast. Shoot it out of the way or
-  take the hit. Thrown junk (at you, or up in the air) is designed but
-  deferred; today the only junk is on the tracks.
-- Three rails, Tempest positions (Tuning.railOffsetsX): the center of
-  the left wall, the floor, the center of the right wall. Each is a
-  bump riding the profile, with a faint lane line running from the far
-  rim into it. A rail is home base. Ride the pod onto a bump with the
-  aim near it and it notches in: jolt, spark, RAIL L/C/R in the debug
-  line. Railed, the controls are normal: direct aim, no gravity, the
-  pod holds the rail. The pass clock drains at Tuning.railClockScale
-  and stripes scroll at Tuning.railScrollScale (the go-fast).
-- The chase: the Skimmer spawns close ahead (Tuning.skimmerSpawnDepth),
-  rides the rails, hops lanes, and RUNS AWAY, shrinking toward the
-  horizon. The pass clock is the chase clock; if it drains, he made the
-  distance and it is kablammo (sky flash, a pass). Railing keeps pace
-  (Tuning.railClockScale); braking loses ground
-  (Tuning.brakeEscapeScale). Mercy: a fleeing racer eases off once
-  (Tuning.skimmerBrakeSeconds) when passes exceed kills.
-- The hop pair. Double-tap up: the pod jumps (Tuning.podHopSeconds/
-  Height) and sails over arriving junk. Double-tap down off a rail:
-  slam lock into the nearest rail with a hard brake
-  (Tuning.brakeSeconds, BRAKE in the debug line); double-tap down on a
-  rail: clunk off.
-- The lane blast: railed, with the aim on your own lane line
-  (Tuning.laneShotTolerance), a shot runs the whole lane and destroys
-  every junk piece on it, plus the Skimmer if he is riding that rail
-  and not mid-hop.
-- Off-rail is off script: slower scroll, and the controls go wonky
-  because yaw, pitch, and aim are one input; the pod's motion smears
-  the crosshair by Tuning.wonkAimDrag. Gravity pulls the aim down to
-  trench level and, from the slopes, in toward the flat area only; it
-  does not drag you to center from the flat.
-- Two ways off the rail, both under test: shove the aim hard to a
-  screen edge and hold (port/starboard clunk toward that side), or
-  double-tap down (clunk off in place).
-- Junk sits only on the three lanes; a piece arriving on the pod stuns
-  (controls cut, hard gravity, fire disabled) and derails. Off-rail
-  floor space is junk-free, so hiding between lanes is safe and slow.
+- The world: the lunar transit system. A hexagonal bore
+  (Tuning.hex...) whose roofline is open to the surface — through the
+  slot: stars and the Earthrise. Five hot rails sit at the five wall
+  centers; the roof carries none. The bad guys hijack the same tubes;
+  junk is wrecked hardware sitting on the lanes. One perspective
+  serves everything: projectPoint converges on the far mouth at the
+  bore's center (Tuning.farPointScale, depthExponent); far is small,
+  near is big, nothing flies. 2D rear-forward always.
+- ONE AXIS. Left/right shuttles the pod around the railed perimeter
+  (Tuning.podPerimeterSpeed); position IS aim. The pod and the UFO
+  bank to the walls (zRotation follows each wall). Gravity slides an
+  idle pod toward the floor rail after Tuning.gravityGraceSeconds and
+  it clicks into notches on the way down.
+- Notches: released near a rail, the pod settles in and clicks
+  (Tuning.railSnapDistance). Railed = fast (railScrollScale, chase
+  clock at railClockScale) and steady. A sustained directional pull
+  pops the notch (Tuning.railStickSeconds); coasting between rails is
+  slow. notchCooldownSeconds prevents an instant re-click.
+- The hop pair survives intact: double-tap up jumps arriving junk;
+  double-tap down spikes into the nearest rail with a hard brake
+  (brakeSeconds/brakeScrollScale/brakeEscapeScale) or, seated, clunks
+  off.
+- The shot goes straight down the tube to the end and owns
+  Tuning.laneHitWidth of the ring: every junk piece in the line dies,
+  and the UFO dies if its perimeter position is in the line, mid-hop
+  included. The sight beam (always on, faint) shows your firing line
+  ending at the far mouth; it brightens over junk and goes
+  enemy-marker red when the UFO is in the line.
+- The chase: the UFO spawns close ahead (skimmerSpawnDepth), rides
+  rails, hops adjacent lanes, and runs for the far mouth. Clock out =
+  kablammo: sky flash, a pass. Mercy brake once per racer when passes
+  exceed kills.
+- Junk sits on lanes only, closes at your forward speed (doubled
+  railed, halved braking), stuns on contact (controls cut, hard
+  gravity to the floor rail, fire disabled) and derails; hop over it,
+  shoot it, or wear it.
+- Two-player intent: both pods ride the same ring, offset front to
+  back a little, so side-to-side movement does not collide. The buddy
+  pod renders at a slightly farther depth when built.
 
-DESIGN.md deltas pending the owner's verdict: fixed obstacles as cover
-became stationary shootable track junk; the three-lane monorail system
-is home base for both sides; enemies flee rather than approach, so
-"passing" is now escaping down-slot; the view is 2D rear-forward with
-scale-by-depth. Gravity recenter reads as a natural fit for an analog
-stick (owner); pads arrive later via GameController. Owner likes the
-double-tap-down dismount and the Tempest read. Owner ideas parked for
-later: thrown junk (at you, or up in the air), and the Groove reshaping
-over time (notch shape changing, rail positions moving).
+DESIGN.md deltas (owner-directed; fold into DESIGN.md when it gets its
+rewrite): free 2D aim is CUT — one-axis movement, position is aim; the
+trench became the hexagonal transit tube with five rails and an open
+surface side; enemies flee rather than approach; junk is stationary
+shootable wreckage; the view is 2D rear-forward with scale-by-depth.
+The sky-band escapee phase needs a new treatment (no vertical aim);
+candidates: a mouth shot or a cut-scene beat. Pads later via
+GameController. Owner ideas parked: thrown junk (at you, or up in the
+air), the Groove reshaping over time (rail positions moving), race
+mode. Two-player: front-to-back offset on the same ring.
 
 After the graphic passes: scoring with brink tiers and the chain,
 banked DEVASTATOR, more racer types, the buddy pod, levels.

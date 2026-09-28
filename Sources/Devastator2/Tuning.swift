@@ -1,7 +1,8 @@
 import CoreGraphics
 
 // Every gameplay number lives here. DESIGN.md is the source of the values;
-// the grey-box exists to find the ones marked feel.
+// the tube model (one-axis movement, five rails, hexagon bore) is the
+// owner's revision of the grey-box outcome.
 enum Tuning {
     // presentation
     static let sceneSize = CGSize(width: 512, height: 384) // 2x DS internal resolution
@@ -21,56 +22,50 @@ enum Tuning {
         (0.5, 16), (1.0, 8), (2.0, 4), (3.0, 2),
     ]
 
-    // feel: placeholders until the grey-box says otherwise
-    static let aimFollowLag = 0.12
-    static let gravityRecenterPerSecond = 0.8
-    static let gravityGraceSeconds = 0.45 // idle time before gravity takes the aim
+    // feel
+    static let podPerimeterSpeed: CGFloat = 620 // points per second along the ring
+    static let gravityRecenterPerSecond = 0.8 // idle slide toward the floor rail
+    static let gravityGraceSeconds = 0.45 // idle time before gravity takes over
     static let stunSeconds = 0.6
     static let stunGravityMultiplier = 3.0
-    static let crosshairSpeed: CGFloat = 320 // scene points per second
-    static let hitRadius: CGFloat = 18
-    static let laneShotTolerance: CGFloat = 12 // aim this close to your lane line = line blast
-    static let trackScrollPerSecond = 0.3 // the pod's forward speed, track lengths per second
-    static let farPointScale: CGFloat = 0.12 // size and spread of the world at the horizon
+    static let laneHitWidth: CGFloat = 30 // a shot owns this much of the ring
+    static let trackScrollPerSecond = 0.3 // the pod's forward speed, tube lengths per second
+    static let farPointScale: CGFloat = 0.12 // size of the world at the far mouth
     static let depthExponent = 1.6 // approach curve; higher looms later
 
-    // racers ride the same rails and run AWAY: the pass clock is the chase,
-    // and the far distance is the kablammo
-    static let skimmerSpawnDepth = 0.85 // how close ahead the quarry starts
-    static let skimmerHopIntervalSeconds = 1.6
-    static let skimmerHopJitterSeconds = 0.8
-    static let skimmerHopSeconds = 0.25 // lateral slide to the next lane
-    static let skimmerBrakeSeconds = 2.5 // chase clock handed back by a mercy brake
-    static let mercyEscapeFraction = 0.7 // escape progress where mercy can trigger
+    // notches: railed is fast and steady, coasting is slow
+    static let railClockScale = 0.5 // chase clock drain while railed
+    static let railScrollScale = 2.0 // the go-fast read
+    static let railSnapDistance: CGFloat = 18 // perimeter points; settle in and click
+    static let railStickSeconds = 0.22 // held pull that pops a notch
+    static let notchCooldownSeconds = 0.4 // no instant re-click after popping out
+    static let railDoubleTapSeconds = 0.3
 
-    // the hop pair: double-up jumps junk, double-down locks in hard
+    // the hop pair: double-up jumps junk, double-down spikes into a rail
     static let podHopSeconds = 0.45
     static let podHopHeight: CGFloat = 26
-    static let brakeSeconds = 0.8 // the cost of a slam lock
+    static let brakeSeconds = 0.8 // the cost of a spike lock
     static let brakeScrollScale = 0.5 // forward speed while braking
     static let brakeEscapeScale = 1.5 // the quarry gains while you brake
 
-    // the monorails: home base, three lanes. Notched in, controls are normal
-    // and you go fast; off the rail you are slower and the controls go wonky.
-    static let railOffsetsX: [CGFloat] = [-160, 0, 160] // wall centers and the floor
-    static let railClockScale = 0.5 // pass clock drain while railed
-    static let railScrollScale = 2.0 // the go-fast read
-    static let railSnapDistance: CGFloat = 12 // pod over the bump notches in
-    static let railAimSnapDistance: CGFloat = 40 // aim must be near center too
-    static let railEdgeMargin: CGFloat = 24 // aim hard over = within this of a screen edge
-    static let railDismountHoldSeconds = 0.3 // hard over held this long = clunk off
-    static let railDoubleTapSeconds = 0.3 // double-tap down = clunk off in place
-    static let wonkAimDrag: CGFloat = 0.25 // off-rail, pod yaw smears the aim
+    // the quarry: rides the rails and runs for the far mouth
+    static let skimmerSpawnDepth = 0.85 // how close ahead it starts
+    static let skimmerHopIntervalSeconds = 1.6
+    static let skimmerHopJitterSeconds = 0.8
+    static let skimmerHopSeconds = 0.25 // slide to the next rail
+    static let skimmerBrakeSeconds = 2.5 // chase clock handed back by a mercy brake
+    static let mercyEscapeFraction = 0.7 // escape progress where mercy can trigger
 
-    // geometry, scene points. The slot fills the usable frame.
-    static let trenchRimY: CGFloat = 308
-    static let trenchBottomY: CGFloat = 40
-    static let trenchWallInset: CGFloat = 44
-    static let flatHalfWidth: CGFloat = 108 // flat floor half width; slopes rise beyond it
-    static let railBumpHalfWidth: CGFloat = 14 // each rail is a bump on the floor
-    static let railBumpHeight: CGFloat = 6
-    static let aimRestHeight: CGFloat = 40 // gravity's aim target above the floor
-    static let crosshairRadius: CGFloat = 9
+    // the bore: a hexagonal transit tube. The roofline is the surface and
+    // carries no rail; five rails sit at the five wall centers.
+    static let hexWaistY: CGFloat = 175 // y of the left and right points
+    static let hexTopY: CGFloat = 300 // the roofline, open to the surface
+    static let hexBottomY: CGFloat = 40
+    static let hexWaistHalf: CGFloat = 244
+    static let hexEdgeHalf: CGFloat = 122 // half length of the roof and floor edges
+    static let railCount = 5
+
+    // actors, scene points
     static let podSize = CGSize(width: 28, height: 16)
     static let skimmerSize = CGSize(width: 44, height: 20)
     static let passRingRadius: CGFloat = 28
@@ -79,23 +74,17 @@ enum Tuning {
     static let junkSpawnSeconds = 2.4
     static let respawnDelaySeconds = 0.6
 
-    // graphics chrome
-    static let bevelDepth: CGFloat = 12 // lit bevel along floor and slopes
-    static let starCount = 26
-    static let starSize = CGSize(width: 2, height: 2)
-    static let starMargin: CGFloat = 8
-    static let starAlphas: [CGFloat] = [1, 0.7, 0.45]
-    static let horizonGlowHeight: CGFloat = 3
-    static let earthX: CGFloat = 150
-    static let earthY: CGFloat = 334 // limb below the rim: risen, still rising
+    // earthrise
+    static let earthX: CGFloat = 256
+    static let earthY: CGFloat = 334 // limb below the surface line: risen, still rising
     static let earthSize = CGSize(width: 96, height: 96)
 
     // terrain dressing: positions and shapes are art
     static let moundSpots: [(x: CGFloat, rx: CGFloat, ry: CGFloat)] = [
-        (10, 14, 5), (34, 9, 4), (478, 12, 5), (502, 8, 3),
+        (40, 14, 5), (96, 9, 4), (430, 12, 5), (486, 8, 3),
     ]
     static let craterSpots: [(x: CGFloat, rx: CGFloat, ry: CGFloat)] = [
-        (22, 7, 2.5), (490, 6, 2.0),
+        (70, 7, 2.5), (450, 6, 2.0),
     ]
     static let craterDropY: CGFloat = 6
     static let speckleCount = 42
@@ -104,10 +93,21 @@ enum Tuning {
     static let skeletonSize = CGSize(width: 24, height: 20)
     static let skeletonAlpha: CGFloat = 0.55
     static let skeletonSpots: [CGPoint] = [
-        CGPoint(x: 22, y: 150), CGPoint(x: 490, y: 96), CGPoint(x: 210, y: 16),
+        CGPoint(x: 56, y: 240), CGPoint(x: 456, y: 240), CGPoint(x: 256, y: 16),
     ]
+
+    // graphics chrome
+    static let bevelDepth: CGFloat = 12 // lit bevel along each wall
+    static let starCount = 26
+    static let starSize = CGSize(width: 2, height: 2)
+    static let starMargin: CGFloat = 8
+    static let starAlphas: [CGFloat] = [1, 0.7, 0.45]
+    static let horizonGlowHeight: CGFloat = 3
     static let engineGlowSize = CGSize(width: 12, height: 4)
     static let railGlowWidth: CGFloat = 4
+    static let railGlowHalfLength: CGFloat = 20 // rail glow arc along its wall
+    static let railIdleAlpha: CGFloat = 0.4
+    static let junkFadeSeconds = 0.15
     static let tracerGlowWidth: CGFloat = 2
     static let fragmentCount = 6
     static let fragmentSize = CGSize(width: 4, height: 4)
@@ -125,15 +125,23 @@ enum Tuning {
     static let joltInSeconds = 0.05
     static let joltOutSeconds = 0.08
     static let sparkRadius: CGFloat = 10
-    static let junkFadeSeconds = 0.15
+    static let laneLineAlpha: CGFloat = 0.22
+    static let passRingMinScale: CGFloat = 0.6
+    static let strokeWidth: CGFloat = 1.5
     static let stripeCount = 9
-    static let stripeSampleStep: CGFloat = 8
     static let stripeAlphaBase: CGFloat = 0.12
     static let stripeAlphaGain: CGFloat = 0.34
 
-    // parallax streamers: the world pours out of the vanishing point at
-    // forward speed. Surface is nearest so it runs fastest; rail pulses are
-    // energy, not matter.
+    // the sight: your firing line down the tube, and the far mouth it ends at
+    static let sightAlphaIdle: CGFloat = 0.12
+    static let sightAlphaLock: CGFloat = 0.5
+    static let farSightRadius: CGFloat = 5
+    static let mouthPulseSeconds = 1.4
+    static let mouthAlphaLo: CGFloat = 0.45
+    static let mouthAlphaHi: CGFloat = 0.9
+
+    // parallax streamers: the world pours out of the far mouth at forward
+    // speed. Surface is nearest so it runs fastest; rail pulses are energy.
     static let surfaceStreamerCount = 8
     static let wallStreakCount = 6
     static let railPulseCount = 6
@@ -153,11 +161,8 @@ enum Tuning {
     static let engineFlickerHz = 24.0
     static let engineFlickerBase: CGFloat = 0.65
     static let engineFlickerAmp: CGFloat = 0.35
-    static let railLineWidth: CGFloat = 3
-    static let railIdleAlpha: CGFloat = 0.4
-    static let laneLineAlpha: CGFloat = 0.22
-    static let passRingMinScale: CGFloat = 0.6
-    static let strokeWidth: CGFloat = 1.5
-    static let trackSampleStep: CGFloat = 4
+    static let podRotationPerSecond = 14.0 // banking rate through corners
+    static let junkTiltRange: CGFloat = 0.35 // wreckage sits crooked
+
     static let maxFrameDt = 0.05
 }

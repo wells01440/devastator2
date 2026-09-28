@@ -53,5 +53,4 @@ enum Palette {
     static let tracer = SKColor(red: 0.80, green: 1.0, blue: 0.90, alpha: 1)
     static let spark = SKColor(red: 1.0, green: 0.95, blue: 0.75, alpha: 1)
     static let flash = SKColor.white
-    static let debugText = SKColor(red: 0.55, green: 0.57, blue: 0.66, alpha: 1)
 }

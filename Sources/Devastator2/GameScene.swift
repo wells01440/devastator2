@@ -1,7 +1,9 @@
 import SpriteKit
 
-// Grey-box prototype. Disposable by design: it exists to answer whether
-// aim-as-movement feels good. Scope and rules are in AGENTS.md.
+// The lunar transit tube. One axis: you shuttle around the five railed
+// walls of a hexagonal bore whose roofline is open to the surface. Your
+// shot goes straight down the tube. Mechanics settled with the owner;
+// AGENTS.md is the brief.
 final class GameScene: SKScene {
 
     private enum Key {
@@ -12,10 +14,21 @@ final class GameScene: SKScene {
         static let space: UInt16 = 49
     }
 
+    private struct Wall {
+        let a: CGPoint
+        let b: CGPoint
+        let length: CGFloat
+        let start: CGFloat // cumulative perimeter length at a
+        let dir: CGVector // unit, a toward b
+        let normal: CGVector // unit, into the tube
+        let rotation: CGFloat // zRotation for a sprite standing on this wall
+    }
+
     private struct Junk {
         let node: SKSpriteNode
-        let laneX: CGFloat
+        let rail: Int
         let size: CGSize
+        let tilt: CGFloat
         var progress: Double
     }
 
@@ -26,27 +39,37 @@ final class GameScene: SKScene {
     private struct Streamer {
         let node: SKNode
         let flavor: StreamerFlavor
-        var nearX: CGFloat
+        var anchor: CGPoint
         var depth: Double
     }
+
+    // MARK: state
 
     private var held = Set<UInt16>()
     private var lastTime: TimeInterval = 0
     private var worldTime: TimeInterval = 0
-    private var streamers: [Streamer] = []
 
     private let skyFlash = SKSpriteNode()
-    private var railGlows: [SKShapeNode] = []
     private let pod = SKSpriteNode()
     private let engineGlow = SKSpriteNode()
-    private let crosshair = SKShapeNode()
+    private let sightBeam = SKShapeNode()
+    private let farSight = SKShapeNode()
+    private let mouth = SKShapeNode()
     private let skimmer = SKSpriteNode()
     private let passRing = SKShapeNode(circleOfRadius: Tuning.passRingRadius)
+    private var railGlows: [SKShapeNode] = []
     private var stripes: [SKShapeNode] = []
+    private var streamers: [Streamer] = []
 
-    private var podX: CGFloat = 0
+    private var walls: [Wall] = []
+    private var perimeterLength: CGFloat = 0
+    private var railTs: [CGFloat] = []
+
+    private var podT: CGFloat = 0.5
+    private var podRotation: CGFloat = 0
     private var railedIndex: Int?
-    private var dismountAccum: TimeInterval = 0
+    private var stickAccum: TimeInterval = 0
+    private var notchCooldown: TimeInterval = 0
     private var lastDownTap: TimeInterval = 0
     private var lastUpTap: TimeInterval = 0
     private var podAirRemaining: TimeInterval = 0
@@ -59,9 +82,9 @@ final class GameScene: SKScene {
     private var skimmerAlive = false
     private var skimmerHasBraked = false
     private var skimmerLane = 0
-    private var skimmerX: CGFloat = 0
+    private var skimmerT: CGFloat = 0
     private var hopTarget: Int?
-    private var hopFromX: CGFloat = 0
+    private var hopFromT: CGFloat = 0
     private var hopT: TimeInterval = 0
     private var hopCountdown: TimeInterval = 0
     private var skimmerElapsed: TimeInterval = 0
@@ -70,18 +93,12 @@ final class GameScene: SKScene {
     private var passes = 0
 
     private var centerX: CGFloat { size.width / 2 }
-    private var leftWallX: CGFloat { Tuning.trenchWallInset }
-    private var rightWallX: CGFloat { size.width - Tuning.trenchWallInset }
-    private var railXs: [CGFloat] { Tuning.railOffsetsX.map { centerX + $0 } }
+    private var tubeCenter: CGPoint { CGPoint(x: centerX, y: Tuning.hexWaistY) }
     private var isRailed: Bool { railedIndex != nil }
-    private var flatMinX: CGFloat { centerX - Tuning.flatHalfWidth }
-    private var flatMaxX: CGFloat { centerX + Tuning.flatHalfWidth }
-    private var aimRest: CGPoint {
-        CGPoint(x: centerX, y: Tuning.trenchBottomY + Tuning.aimRestHeight)
-    }
+    private var bottomRailT: CGFloat { railTs[Tuning.railCount / 2] }
 
-    // your forward speed through the slot, and how fast the quarry gains on
-    // escape: braking beats railing beats nothing
+    // your forward speed through the tube, and how fast the quarry gains:
+    // braking beats railing beats coasting
     private var forwardScale: Double {
         brakeRemaining > 0 ? Tuning.brakeScrollScale : isRailed ? Tuning.railScrollScale : 1
     }
@@ -89,49 +106,95 @@ final class GameScene: SKScene {
         brakeRemaining > 0 ? Tuning.brakeEscapeScale : isRailed ? Tuning.railClockScale : 1
     }
 
-    // the trench profile, rear-forward view: flat floor, straight slopes to
-    // the rim at the walls
-    private func baseProfileY(_ x: CGFloat) -> CGFloat {
-        let a = abs(x - centerX)
-        guard a > Tuning.flatHalfWidth else { return Tuning.trenchBottomY }
-        let run = centerX - Tuning.trenchWallInset - Tuning.flatHalfWidth
-        let t = min(1, (a - Tuning.flatHalfWidth) / run)
-        return Tuning.trenchBottomY + (Tuning.trenchRimY - Tuning.trenchBottomY) * t
+    // MARK: the bore
+
+    // vertices, roofline first: TL, L, BL, BR, R, TR. The railed perimeter
+    // runs TL -> L -> BL -> BR -> R -> TR; the roof edge TR -> TL is the
+    // open surface side.
+    private var hexVertices: [CGPoint] {
+        [CGPoint(x: centerX - Tuning.hexEdgeHalf, y: Tuning.hexTopY),
+         CGPoint(x: centerX - Tuning.hexWaistHalf, y: Tuning.hexWaistY),
+         CGPoint(x: centerX - Tuning.hexEdgeHalf, y: Tuning.hexBottomY),
+         CGPoint(x: centerX + Tuning.hexEdgeHalf, y: Tuning.hexBottomY),
+         CGPoint(x: centerX + Tuning.hexWaistHalf, y: Tuning.hexWaistY),
+         CGPoint(x: centerX + Tuning.hexEdgeHalf, y: Tuning.hexTopY)]
     }
 
-    // each rail is a bump riding the profile, wall or floor
-    private func trackY(_ x: CGFloat) -> CGFloat {
-        var y = baseProfileY(x)
-        if let nearest = railXs.min(by: { abs(x - $0) < abs(x - $1) }),
-           abs(x - nearest) <= Tuning.railBumpHalfWidth {
-            let t = abs(x - nearest) / Tuning.railBumpHalfWidth
-            y += Tuning.railBumpHeight * (1 - t * t)
+    private func buildWalls() {
+        let v = hexVertices
+        walls = []
+        var cursor: CGFloat = 0
+        for i in 0..<Tuning.railCount {
+            let a = v[i]
+            let b = v[i + 1]
+            let len = hypot(b.x - a.x, b.y - a.y)
+            let dir = CGVector(dx: (b.x - a.x) / len, dy: (b.y - a.y) / len)
+            var normal = CGVector(dx: -dir.dy, dy: dir.dx)
+            let mid = CGPoint(x: (a.x + b.x) / 2, y: (a.y + b.y) / 2)
+            if (tubeCenter.x - mid.x) * normal.dx + (tubeCenter.y - mid.y) * normal.dy < 0 {
+                normal = CGVector(dx: -normal.dx, dy: -normal.dy)
+            }
+            let rotation = atan2(normal.dy, normal.dx) - .pi / 2
+            walls.append(Wall(a: a, b: b, length: len, start: cursor,
+                              dir: dir, normal: normal, rotation: rotation))
+            cursor += len
         }
-        return y
+        perimeterLength = cursor
+        railTs = walls.map { ($0.start + $0.length / 2) / cursor }
     }
 
-    // one perspective for everything in the slot: depth 0 is the horizon
-    // (trench center at rim height), depth 1 is the player's cross-section.
-    // A grounded thing at near-anchor x projects toward the vanishing point
-    // and scales with depth: far is small, near is big, nothing flies.
+    private func wallIndex(at t: CGFloat) -> Int {
+        let s = t.clamped(0, 1) * perimeterLength
+        for (i, w) in walls.enumerated() where s <= w.start + w.length {
+            return i
+        }
+        return walls.count - 1
+    }
+
+    private func wallFrame(at t: CGFloat) -> (point: CGPoint, wall: Wall) {
+        let w = walls[wallIndex(at: t)]
+        let s = t.clamped(0, 1) * perimeterLength - w.start
+        return (CGPoint(x: w.a.x + w.dir.dx * s, y: w.a.y + w.dir.dy * s), w)
+    }
+
+    private func laneDistance(_ a: CGFloat, _ b: CGFloat) -> CGFloat {
+        abs(a - b) * perimeterLength
+    }
+
+    // hexagon interior half width at height y; negative means no interior
+    private func hexHalfWidth(at y: CGFloat) -> CGFloat {
+        if y < Tuning.hexBottomY || y > Tuning.hexTopY { return -1 }
+        if y <= Tuning.hexWaistY {
+            let t = (y - Tuning.hexBottomY) / (Tuning.hexWaistY - Tuning.hexBottomY)
+            return Tuning.hexEdgeHalf + (Tuning.hexWaistHalf - Tuning.hexEdgeHalf) * t
+        }
+        let t = (y - Tuning.hexWaistY) / (Tuning.hexTopY - Tuning.hexWaistY)
+        return Tuning.hexWaistHalf + (Tuning.hexEdgeHalf - Tuning.hexWaistHalf) * t
+    }
+
+    // MARK: perspective
+
+    // one perspective for everything in the tube: depth 0 is the far mouth
+    // at the bore's center, depth 1 is the player's cross-section
     private func projectPoint(_ near: CGPoint, _ depth: Double) -> (point: CGPoint, scale: CGFloat) {
         let f = Tuning.farPointScale
             + (1 - Tuning.farPointScale) * CGFloat(pow(depth, Tuning.depthExponent))
-        let vp = CGPoint(x: centerX, y: Tuning.trenchRimY)
-        let point = CGPoint(x: vp.x + (near.x - vp.x) * f,
-                            y: vp.y + (near.y - vp.y) * f)
+        let point = CGPoint(x: tubeCenter.x + (near.x - tubeCenter.x) * f,
+                            y: tubeCenter.y + (near.y - tubeCenter.y) * f)
         return (point, f)
     }
 
-    private func project(_ nearX: CGFloat, _ depth: Double) -> (point: CGPoint, scale: CGFloat) {
-        projectPoint(CGPoint(x: nearX, y: trackY(nearX)), depth)
-    }
-
-    // screen position for a grounded sprite of the given full height
-    private func place(_ node: SKNode, nearX: CGFloat, depth: Double, height: CGFloat) -> CGFloat {
-        let (p, f) = project(nearX, depth)
-        node.position = CGPoint(x: p.x, y: p.y + height / 2 * f)
+    // screen placement for a sprite riding a wall at perimeter t
+    @discardableResult
+    private func placeOnWall(_ node: SKNode, t: CGFloat, depth: Double,
+                             height: CGFloat, lift: CGFloat = 0) -> CGFloat {
+        let frame = wallFrame(at: t)
+        let anchor = CGPoint(x: frame.point.x + frame.wall.normal.dx * (height / 2 + lift),
+                             y: frame.point.y + frame.wall.normal.dy * (height / 2 + lift))
+        let (p, f) = projectPoint(anchor, depth)
+        node.position = p
         node.setScale(f)
+        node.zRotation = frame.wall.rotation
         return f
     }
 
@@ -139,18 +202,20 @@ final class GameScene: SKScene {
 
     override func didMove(to view: SKView) {
         backgroundColor = Palette.space
-        buildTrench()
+        buildWalls()
+        buildWorld()
         buildStreamers()
         buildActors()
-        podX = centerX
-        crosshair.position = aimRest
+        podT = bottomRailT
+        railedIndex = Tuning.railCount / 2
+        podRotation = walls[Tuning.railCount / 2].rotation
         junkSpawnCountdown = Tuning.junkSpawnSeconds
         spawnSkimmer()
     }
 
-    private func buildTrench() {
-        // stars: a golden-ratio scatter above the rim, deterministic
-        let starBottom = Tuning.trenchRimY + Tuning.starMargin
+    private func buildWorld() {
+        // stars above the surface line
+        let starBottom = Tuning.hexTopY + Tuning.starMargin
         let starSpan = size.height - starBottom - Tuning.starMargin
         for i in 0..<Tuning.starCount {
             let fx = (Double(i) * 0.61803).truncatingRemainder(dividingBy: 1)
@@ -162,95 +227,19 @@ final class GameScene: SKScene {
             addChild(star)
         }
 
-        // Earthrise: the limb sits below the rim, so the horizon and the
-        // slot's interior occlude it. Risen, still rising.
+        // Earthrise over the open roofline, limb behind the surface
         let earth = SKSpriteNode(texture: Sprites.earth)
         earth.size = Tuning.earthSize
         earth.position = CGPoint(x: Tuning.earthX, y: Tuning.earthY)
         addChild(earth)
 
-        // the slot's interior: nearer than the horizon, so it hides the limb
-        let interior = CGMutablePath()
-        interior.move(to: CGPoint(x: leftWallX, y: Tuning.trenchRimY))
-        for x in stride(from: leftWallX, through: rightWallX, by: Tuning.trackSampleStep) {
-            interior.addLine(to: CGPoint(x: x, y: trackY(x)))
-        }
-        interior.addLine(to: CGPoint(x: rightWallX, y: Tuning.trenchRimY))
-        interior.closeSubpath()
-        let interiorNode = SKShapeNode(path: interior)
-        interiorNode.fillColor = Palette.trenchAir
-        interiorNode.strokeColor = .clear
-        addChild(interiorNode)
+        // the regolith cross-section the tube is bored through
+        let dirt = SKSpriteNode(color: Palette.rockBody,
+                                size: CGSize(width: size.width, height: Tuning.hexTopY))
+        dirt.position = CGPoint(x: centerX, y: Tuning.hexTopY / 2)
+        addChild(dirt)
 
-        let path = CGMutablePath()
-        path.move(to: CGPoint(x: 0, y: 0))
-        path.addLine(to: CGPoint(x: 0, y: Tuning.trenchRimY))
-        for x in stride(from: CGFloat(0), through: size.width, by: Tuning.trackSampleStep) {
-            path.addLine(to: CGPoint(x: x, y: trackY(x)))
-        }
-        path.addLine(to: CGPoint(x: size.width, y: 0))
-        path.closeSubpath()
-        let rock = SKShapeNode(path: path)
-        rock.fillColor = Palette.rockBody
-        rock.strokeColor = Palette.edgeLight
-        rock.lineWidth = Tuning.strokeWidth
-        addChild(rock)
-
-        // lit bevels: the cut faces of the slot catch the light
-        func facet(_ points: [CGPoint], _ color: SKColor) {
-            let p = CGMutablePath()
-            p.addLines(between: points)
-            p.closeSubpath()
-            let node = SKShapeNode(path: p)
-            node.fillColor = color
-            node.strokeColor = .clear
-            addChild(node)
-        }
-        let bevel = Tuning.bevelDepth
-        let bottomY = Tuning.trenchBottomY
-        let rimY = Tuning.trenchRimY
-        facet([CGPoint(x: flatMinX, y: bottomY),
-               CGPoint(x: flatMaxX, y: bottomY),
-               CGPoint(x: flatMaxX, y: bottomY - bevel),
-               CGPoint(x: flatMinX, y: bottomY - bevel)], Palette.rockFloor)
-        facet([CGPoint(x: flatMinX, y: bottomY),
-               CGPoint(x: leftWallX, y: rimY),
-               CGPoint(x: leftWallX, y: rimY - bevel),
-               CGPoint(x: flatMinX, y: bottomY - bevel)], Palette.rockSlopeLit)
-        facet([CGPoint(x: flatMaxX, y: bottomY),
-               CGPoint(x: rightWallX, y: rimY),
-               CGPoint(x: rightWallX, y: rimY - bevel),
-               CGPoint(x: flatMaxX, y: bottomY - bevel)], Palette.rockSlopeShade)
-        facet([CGPoint(x: 0, y: rimY),
-               CGPoint(x: leftWallX, y: rimY),
-               CGPoint(x: leftWallX, y: rimY - bevel),
-               CGPoint(x: 0, y: rimY - bevel)], Palette.surface)
-        facet([CGPoint(x: rightWallX, y: rimY),
-               CGPoint(x: size.width, y: rimY),
-               CGPoint(x: size.width, y: rimY - bevel),
-               CGPoint(x: rightWallX, y: rimY - bevel)], Palette.surface)
-
-        // busy lunar terrain: mounds breaking the horizon on the surface strips
-        for spot in Tuning.moundSpots {
-            let mound = SKShapeNode(ellipseOf: CGSize(width: spot.rx * 2, height: spot.ry * 2))
-            mound.position = CGPoint(x: spot.x, y: rimY)
-            mound.fillColor = Palette.surface
-            mound.strokeColor = .clear
-            addChild(mound)
-        }
-        for spot in Tuning.craterSpots {
-            let lip = SKShapeNode(ellipseOf: CGSize(width: spot.rx * 2, height: spot.ry * 2))
-            lip.position = CGPoint(x: spot.x, y: rimY - Tuning.craterDropY + 1)
-            lip.fillColor = Palette.edgeLight
-            lip.strokeColor = .clear
-            addChild(lip)
-            let bowl = SKShapeNode(ellipseOf: CGSize(width: spot.rx * 2, height: spot.ry * 2))
-            bowl.position = CGPoint(x: spot.x, y: rimY - Tuning.craterDropY)
-            bowl.fillColor = Palette.rockSlopeShade
-            bowl.strokeColor = .clear
-            addChild(bowl)
-        }
-        // dirt speckle: rubble in the cross-section, golden-ratio scattered
+        // dirt speckle, golden-ratio scattered outside the bore
         var speckled = 0
         var probe = 0
         while speckled < Tuning.speckleCount && probe < Tuning.speckleCount * 10 {
@@ -258,8 +247,9 @@ final class GameScene: SKScene {
             let x = CGFloat((Double(probe) * 0.61803).truncatingRemainder(dividingBy: 1))
                 * size.width
             let y = CGFloat((Double(probe) * 0.38197).truncatingRemainder(dividingBy: 1))
-                * Tuning.trenchRimY
-            guard y < baseProfileY(x) - Tuning.speckleMargin else { continue }
+                * Tuning.hexTopY
+            let half = hexHalfWidth(at: y)
+            guard half < 0 || abs(x - centerX) > half + Tuning.speckleMargin else { continue }
             let side = Tuning.speckleSizes[speckled % Tuning.speckleSizes.count]
             let fleck = SKSpriteNode(color: speckled % 2 == 0 ? Palette.dirtLight
                                                               : Palette.dirtDark,
@@ -277,55 +267,113 @@ final class GameScene: SKScene {
             addChild(bones)
         }
 
+        // the bore interior, nearer than the horizon so it hides the limb
+        let v = hexVertices
+        let hexPath = CGMutablePath()
+        hexPath.addLines(between: v)
+        hexPath.closeSubpath()
+        let interior = SKShapeNode(path: hexPath)
+        interior.fillColor = Palette.trenchAir
+        interior.strokeColor = Palette.edgeLight
+        interior.lineWidth = Tuning.strokeWidth
+        addChild(interior)
+
+        // lit bevels on the five railed walls
+        let facetColors: [SKColor] = [Palette.rockSlopeLit, Palette.rockSlopeLit,
+                                      Palette.rockFloor,
+                                      Palette.rockSlopeShade, Palette.rockSlopeShade]
+        for (i, w) in walls.enumerated() {
+            let quad = CGMutablePath()
+            let na = CGPoint(x: w.a.x + w.normal.dx * Tuning.bevelDepth,
+                             y: w.a.y + w.normal.dy * Tuning.bevelDepth)
+            let nb = CGPoint(x: w.b.x + w.normal.dx * Tuning.bevelDepth,
+                             y: w.b.y + w.normal.dy * Tuning.bevelDepth)
+            quad.addLines(between: [w.a, w.b, nb, na])
+            quad.closeSubpath()
+            let facet = SKShapeNode(path: quad)
+            facet.fillColor = facetColors[i]
+            facet.strokeColor = .clear
+            addChild(facet)
+        }
+
+        // the surface: caps beside the open roofline, busy terrain on it
+        let capL = SKSpriteNode(color: Palette.surface,
+                                size: CGSize(width: v[0].x, height: Tuning.bevelDepth))
+        capL.position = CGPoint(x: v[0].x / 2, y: Tuning.hexTopY - Tuning.bevelDepth / 2)
+        addChild(capL)
+        let capR = SKSpriteNode(color: Palette.surface,
+                                size: CGSize(width: size.width - v[5].x,
+                                             height: Tuning.bevelDepth))
+        capR.position = CGPoint(x: (size.width + v[5].x) / 2,
+                                y: Tuning.hexTopY - Tuning.bevelDepth / 2)
+        addChild(capR)
+        for spot in Tuning.moundSpots {
+            let mound = SKShapeNode(ellipseOf: CGSize(width: spot.rx * 2, height: spot.ry * 2))
+            mound.position = CGPoint(x: spot.x, y: Tuning.hexTopY)
+            mound.fillColor = Palette.surface
+            mound.strokeColor = .clear
+            addChild(mound)
+        }
+        for spot in Tuning.craterSpots {
+            let lip = SKShapeNode(ellipseOf: CGSize(width: spot.rx * 2, height: spot.ry * 2))
+            lip.position = CGPoint(x: spot.x, y: Tuning.hexTopY - Tuning.craterDropY + 1)
+            lip.fillColor = Palette.edgeLight
+            lip.strokeColor = .clear
+            addChild(lip)
+            let bowl = SKShapeNode(ellipseOf: CGSize(width: spot.rx * 2, height: spot.ry * 2))
+            bowl.position = CGPoint(x: spot.x, y: Tuning.hexTopY - Tuning.craterDropY)
+            bowl.fillColor = Palette.rockSlopeShade
+            bowl.strokeColor = .clear
+            addChild(bowl)
+        }
+
         let horizon = SKSpriteNode(color: Palette.horizonGlow,
                                    size: CGSize(width: size.width,
                                                 height: Tuning.horizonGlowHeight))
-        horizon.position = CGPoint(x: centerX, y: rimY)
+        horizon.position = CGPoint(x: centerX, y: Tuning.hexTopY)
         addChild(horizon)
 
         // the kablammo flash washes the whole sky, Earth included
         skyFlash.color = Palette.flash
-        skyFlash.size = CGSize(width: size.width, height: size.height - rimY)
-        skyFlash.position = CGPoint(x: centerX, y: (size.height + rimY) / 2)
+        skyFlash.size = CGSize(width: size.width, height: size.height - Tuning.hexTopY)
+        skyFlash.position = CGPoint(x: centerX, y: (size.height + Tuning.hexTopY) / 2)
         skyFlash.alpha = 0
         addChild(skyFlash)
 
-        // lane lines: the rails run from the horizon out into their bumps,
-        // so riding one is visible
-        for railX in railXs {
-            let lane = CGMutablePath()
-            lane.move(to: project(railX, 0).point)
-            lane.addLine(to: CGPoint(x: railX, y: trackY(railX)))
-            let laneNode = SKShapeNode(path: lane)
-            laneNode.strokeColor = Palette.laneLine
-            laneNode.lineWidth = Tuning.strokeWidth
-            laneNode.alpha = Tuning.laneLineAlpha
-            addChild(laneNode)
+        // lane rays from the far mouth out to each rail
+        for t in railTs {
+            let near = wallFrame(at: t).point
+            let ray = CGMutablePath()
+            ray.move(to: projectPoint(near, 0).point)
+            ray.addLine(to: near)
+            let node = SKShapeNode(path: ray)
+            node.strokeColor = Palette.laneLine
+            node.lineWidth = Tuning.strokeWidth
+            node.alpha = Tuning.laneLineAlpha
+            addChild(node)
         }
 
-        for railX in railXs {
-            let glow = CGMutablePath()
-            var first = true
-            for x in stride(from: railX - Tuning.railBumpHalfWidth,
-                            through: railX + Tuning.railBumpHalfWidth,
-                            by: Tuning.trackSampleStep) {
-                let p = CGPoint(x: x, y: trackY(x) + Tuning.strokeWidth)
-                if first {
-                    glow.move(to: p)
-                    first = false
-                } else {
-                    glow.addLine(to: p)
-                }
-            }
-            let node = SKShapeNode(path: glow)
+        // the hot rails: glow arcs at the five wall centers
+        for t in railTs {
+            let frame = wallFrame(at: t)
+            let half = Tuning.railGlowHalfLength / perimeterLength
+            let a = wallFrame(at: t - half).point
+            let b = wallFrame(at: t + half).point
+            let arc = CGMutablePath()
+            arc.move(to: CGPoint(x: a.x + frame.wall.normal.dx * Tuning.strokeWidth,
+                                 y: a.y + frame.wall.normal.dy * Tuning.strokeWidth))
+            arc.addLine(to: CGPoint(x: b.x + frame.wall.normal.dx * Tuning.strokeWidth,
+                                    y: b.y + frame.wall.normal.dy * Tuning.strokeWidth))
+            let node = SKShapeNode(path: arc)
             node.strokeColor = Palette.railHot
             node.glowWidth = Tuning.railGlowWidth
-            node.lineWidth = Tuning.railLineWidth
+            node.lineWidth = Tuning.railGlowWidth
             node.alpha = Tuning.railIdleAlpha
             addChild(node)
             railGlows.append(node)
         }
 
+        // receding open-hex outlines: the bore telescoping away
         for _ in 0..<Tuning.stripeCount {
             let stripe = SKShapeNode()
             stripe.strokeColor = Palette.stripe
@@ -333,6 +381,20 @@ final class GameScene: SKScene {
             addChild(stripe)
             stripes.append(stripe)
         }
+
+        // the far mouth: the exit the quarry is running for
+        let mouthPath = CGMutablePath()
+        mouthPath.addLines(between: v.map { projectPoint($0, 0).point })
+        mouth.path = mouthPath
+        mouth.strokeColor = Palette.railHot
+        mouth.glowWidth = Tuning.railGlowWidth
+        mouth.lineWidth = Tuning.strokeWidth
+        mouth.blendMode = .add
+        mouth.run(.repeatForever(.sequence([
+            .fadeAlpha(to: Tuning.mouthAlphaLo, duration: Tuning.mouthPulseSeconds / 2),
+            .fadeAlpha(to: Tuning.mouthAlphaHi, duration: Tuning.mouthPulseSeconds / 2),
+        ])))
+        addChild(mouth)
     }
 
     // the parallax layers: craters pouring along the surface band, streaks
@@ -367,23 +429,30 @@ final class GameScene: SKScene {
     private func addStreamer(_ node: SKNode, _ flavor: StreamerFlavor, phase: Double) {
         addChild(node)
         streamers.append(Streamer(node: node, flavor: flavor,
-                                  nearX: streamerLane(flavor), depth: phase))
+                                  anchor: streamerAnchor(flavor, node), depth: phase))
     }
 
-    private func streamerLane(_ flavor: StreamerFlavor) -> CGFloat {
+    private func streamerAnchor(_ flavor: StreamerFlavor, _ node: SKNode) -> CGPoint {
         switch flavor {
         case .surface:
             let pad = Tuning.streamEdgePad
-            return Bool.random()
-                ? .random(in: pad...(leftWallX - pad))
-                : .random(in: (rightWallX + pad)...(size.width - pad))
+            let leftEdge = hexVertices[0].x
+            let rightEdge = hexVertices[5].x
+            let x: CGFloat = Bool.random()
+                ? .random(in: pad...(leftEdge - pad))
+                : .random(in: (rightEdge + pad)...(size.width - pad))
+            return CGPoint(x: x, y: Tuning.hexTopY - Tuning.craterDropY)
         case .wall:
-            let pad = Tuning.streamEdgePad
-            let a = CGFloat.random(
-                in: (Tuning.flatHalfWidth + pad)...(centerX - Tuning.trenchWallInset - pad))
-            return Bool.random() ? centerX - a : centerX + a
+            let t = CGFloat.random(in: 0...1)
+            let frame = wallFrame(at: t)
+            node.zRotation = frame.wall.rotation
+            return CGPoint(x: frame.point.x + frame.wall.normal.dx * 6,
+                           y: frame.point.y + frame.wall.normal.dy * 6)
         case .pulse:
-            return railXs.randomElement() ?? centerX
+            let t = railTs.randomElement() ?? bottomRailT
+            let frame = wallFrame(at: t)
+            return CGPoint(x: frame.point.x + frame.wall.normal.dx * 3,
+                           y: frame.point.y + frame.wall.normal.dy * 3)
         }
     }
 
@@ -398,14 +467,10 @@ final class GameScene: SKScene {
             streamers[i].depth += dt * Tuning.trackScrollPerSecond * forwardScale * rate
             if streamers[i].depth >= 1 {
                 streamers[i].depth -= 1
-                streamers[i].nearX = streamerLane(streamers[i].flavor)
+                streamers[i].anchor = streamerAnchor(streamers[i].flavor, streamers[i].node)
             }
             let s = streamers[i]
-            // surface features land on the visible cap band, not the rim edge
-            let near = s.flavor == .surface
-                ? CGPoint(x: s.nearX, y: Tuning.trenchRimY - Tuning.craterDropY)
-                : CGPoint(x: s.nearX, y: trackY(s.nearX))
-            let (p, f) = projectPoint(near, s.depth)
+            let (p, f) = projectPoint(s.anchor, s.depth)
             s.node.position = p
             s.node.setScale(f)
             s.node.alpha = Tuning.streamAlphaBase + Tuning.streamAlphaGain * CGFloat(s.depth)
@@ -422,6 +487,22 @@ final class GameScene: SKScene {
         passRing.lineWidth = Tuning.strokeWidth
         addChild(passRing)
 
+        // the sight: your firing line, always on, brighter with a target
+        sightBeam.strokeColor = Palette.reticle
+        sightBeam.lineWidth = Tuning.strokeWidth
+        sightBeam.alpha = Tuning.sightAlphaIdle
+        addChild(sightBeam)
+        farSight.path = CGPath(ellipseIn: CGRect(x: -Tuning.farSightRadius,
+                                                 y: -Tuning.farSightRadius,
+                                                 width: Tuning.farSightRadius * 2,
+                                                 height: Tuning.farSightRadius * 2),
+                               transform: nil)
+        farSight.strokeColor = Palette.reticle
+        farSight.fillColor = .clear
+        farSight.lineWidth = Tuning.strokeWidth
+        farSight.alpha = Tuning.sightAlphaIdle
+        addChild(farSight)
+
         pod.texture = Sprites.pod
         pod.size = Tuning.podSize
         addChild(pod)
@@ -432,24 +513,6 @@ final class GameScene: SKScene {
         engineGlow.blendMode = .add
         engineGlow.isHidden = true
         pod.addChild(engineGlow)
-
-        // the reticle: ring, four ticks, an open center (ratios are art)
-        let r = Tuning.crosshairRadius
-        let cross = CGMutablePath()
-        cross.addEllipse(in: CGRect(x: -r * 0.6, y: -r * 0.6,
-                                    width: r * 1.2, height: r * 1.2))
-        cross.move(to: CGPoint(x: -r * 1.2, y: 0))
-        cross.addLine(to: CGPoint(x: -r * 0.5, y: 0))
-        cross.move(to: CGPoint(x: r * 0.5, y: 0))
-        cross.addLine(to: CGPoint(x: r * 1.2, y: 0))
-        cross.move(to: CGPoint(x: 0, y: -r * 1.2))
-        cross.addLine(to: CGPoint(x: 0, y: -r * 0.5))
-        cross.move(to: CGPoint(x: 0, y: r * 0.5))
-        cross.addLine(to: CGPoint(x: 0, y: r * 1.2))
-        crosshair.path = cross
-        crosshair.strokeColor = Palette.reticle
-        crosshair.lineWidth = Tuning.strokeWidth
-        addChild(crosshair)
     }
 
     // MARK: loop
@@ -459,136 +522,126 @@ final class GameScene: SKScene {
         lastTime = currentTime
         guard dt > 0 else { return }
         worldTime += dt
-        stepCrosshair(dt)
         stepPod(dt)
         stepStripes(dt)
         stepStreamers(dt)
         stepJunk(dt)
         stepSkimmer(dt)
-    }
-
-    private func stepCrosshair(_ dt: TimeInterval) {
-        if stunRemaining > 0 {
-            stunRemaining -= dt
-            let rate = Tuning.gravityRecenterPerSecond * Tuning.stunGravityMultiplier
-            pullAimHome(CGFloat(min(1, rate * dt)))
-            return
-        }
-        var dx: CGFloat = 0
-        var dy: CGFloat = 0
-        if held.contains(Key.left) { dx -= 1 }
-        if held.contains(Key.right) { dx += 1 }
-        if held.contains(Key.down) { dy -= 1 }
-        if held.contains(Key.up) { dy += 1 }
-        if dx != 0 || dy != 0 {
-            idleSeconds = 0
-            let step = Tuning.crosshairSpeed * CGFloat(dt)
-            crosshair.position.x += dx * step
-            crosshair.position.y += dy * step
-            clampAim()
-            return
-        }
-        // on a rail the controls are normal: the aim stays where you put it
-        guard !isRailed else { return }
-        idleSeconds += dt
-        guard idleSeconds >= Tuning.gravityGraceSeconds else { return }
-        pullAimHome(CGFloat(min(1, Tuning.gravityRecenterPerSecond * dt)))
-    }
-
-    // gravity pulls the aim down to trench level and, on the slopes, in toward
-    // the flat area; on the flat it leaves the lateral position alone
-    private func pullAimHome(_ pull: CGFloat) {
-        let gx = crosshair.position.x.clamped(flatMinX, flatMaxX)
-        crosshair.position.x += (gx - crosshair.position.x) * pull
-        crosshair.position.y += (aimRest.y - crosshair.position.y) * pull
-    }
-
-    // the aim lives inside the slot: between the walls, above the track,
-    // below the rim. No focus outside the trench.
-    private func clampAim() {
-        let r = Tuning.crosshairRadius
-        let x = crosshair.position.x.clamped(leftWallX + r, rightWallX - r)
-        let y = crosshair.position.y.clamped(trackY(x) + r, Tuning.trenchRimY)
-        crosshair.position = CGPoint(x: x, y: y)
+        stepSight()
     }
 
     private func stepPod(_ dt: TimeInterval) {
         brakeRemaining = max(0, brakeRemaining - dt)
         podAirRemaining = max(0, podAirRemaining - dt)
-        let halfW = Tuning.podSize.width / 2
-        if let i = railedIndex {
-            podX = railXs[i]
-            let hardPort = held.contains(Key.left)
-                && crosshair.position.x <= leftWallX + Tuning.railEdgeMargin
-            let hardStarboard = held.contains(Key.right)
-                && crosshair.position.x >= rightWallX - Tuning.railEdgeMargin
-            if stunRemaining <= 0, hardPort || hardStarboard {
-                dismountAccum += dt
-                if dismountAccum >= Tuning.railDismountHoldSeconds { clunkOff() }
+        notchCooldown = max(0, notchCooldown - dt)
+
+        var dir: CGFloat = 0
+        if held.contains(Key.left) { dir -= 1 }
+        if held.contains(Key.right) { dir += 1 }
+
+        if stunRemaining > 0 {
+            stunRemaining -= dt
+            let rate = Tuning.gravityRecenterPerSecond * Tuning.stunGravityMultiplier
+            podT += (bottomRailT - podT) * CGFloat(min(1, rate * dt))
+        } else if let i = railedIndex {
+            podT = railTs[i]
+            // a sustained pull pops the notch; taps stay seated
+            if dir != 0 {
+                stickAccum += dt
+                if stickAccum >= Tuning.railStickSeconds {
+                    popOff()
+                    podT += dir * Tuning.podPerimeterSpeed / perimeterLength * CGFloat(dt)
+                }
             } else {
-                dismountAccum = 0
+                stickAccum = 0
             }
         } else {
-            let prevX = podX
-            let targetX = crosshair.position.x.clamped(leftWallX + halfW, rightWallX - halfW)
-            let follow = CGFloat(1 - exp(-dt / Tuning.aimFollowLag))
-            podX += (targetX - podX) * follow
-            // the wonk: off-rail you steer yaw, pitch, and aim at once, so the
-            // pod's motion smears the aim with it
-            crosshair.position.x += (podX - prevX) * Tuning.wonkAimDrag
-            clampAim()
-            for (i, railX) in railXs.enumerated()
-            where abs(podX - railX) < Tuning.railSnapDistance
-                && abs(crosshair.position.x - railX) < Tuning.railAimSnapDistance {
-                notchIn(i)
-                break
+            if dir != 0 {
+                idleSeconds = 0
+                podT += dir * Tuning.podPerimeterSpeed / perimeterLength * CGFloat(dt)
+            } else {
+                idleSeconds += dt
+                if idleSeconds >= Tuning.gravityGraceSeconds {
+                    let pull = CGFloat(min(1, Tuning.gravityRecenterPerSecond * dt))
+                    podT += (bottomRailT - podT) * pull
+                }
+                // settle into the nearest notch: click
+                if notchCooldown <= 0,
+                   let i = nearestRail(within: Tuning.railSnapDistance) {
+                    notchIn(i)
+                }
             }
+            podT = podT.clamped(0, 1)
         }
-        // rail rumble: the render position vibrates, the logic position does not
-        var renderX = podX
+
+        // render: bank into the walls, rumble on the rail, hop off it
+        let frame = wallFrame(at: podT)
+        let target = frame.wall.rotation
+        podRotation += (target - podRotation)
+            * CGFloat(min(1, Tuning.podRotationPerSecond * dt))
+        var lift = Tuning.podSize.height / 2
+        if podAirRemaining > 0 {
+            let t = 1 - podAirRemaining / Tuning.podHopSeconds
+            lift += Tuning.podHopHeight * CGFloat(sin(Double.pi * t))
+        }
+        var pos = CGPoint(x: frame.point.x + frame.wall.normal.dx * lift,
+                          y: frame.point.y + frame.wall.normal.dy * lift)
         if isRailed {
-            renderX += CGFloat(sin(worldTime * 2 * .pi * Tuning.railShakeHz))
+            let shake = CGFloat(sin(worldTime * 2 * .pi * Tuning.railShakeHz))
                 * Tuning.railShakeAmplitude
+            pos.x += frame.wall.dir.dx * shake
+            pos.y += frame.wall.dir.dy * shake
             engineGlow.alpha = Tuning.engineFlickerBase + Tuning.engineFlickerAmp
                 * CGFloat(sin(worldTime * 2 * .pi * Tuning.engineFlickerHz))
         }
-        pod.position = CGPoint(x: renderX, y: trackY(podX) + Tuning.podSize.height / 2)
-        if podAirRemaining > 0 {
-            let t = 1 - podAirRemaining / Tuning.podHopSeconds
-            pod.position.y += Tuning.podHopHeight * CGFloat(sin(Double.pi * t))
-        }
+        pod.position = pos
+        pod.zRotation = podRotation
         engineGlow.isHidden = !isRailed
         for (i, glow) in railGlows.enumerated() {
             glow.alpha = i == railedIndex ? 1 : Tuning.railIdleAlpha
         }
     }
 
+    private func nearestRail(within distance: CGFloat) -> Int? {
+        let i = railTs.indices.min { laneDistance(podT, railTs[$0]) < laneDistance(podT, railTs[$1]) }
+        guard let i, laneDistance(podT, railTs[i]) <= distance else { return nil }
+        return i
+    }
+
     private func notchIn(_ i: Int) {
         railedIndex = i
-        dismountAccum = 0
-        podX = railXs[i]
+        stickAccum = 0
+        podT = railTs[i]
         jolt()
-        spark(at: CGPoint(x: podX, y: trackY(podX) + Tuning.podSize.height),
-              radius: Tuning.sparkRadius)
+        spark(at: wallFrame(at: podT).point, radius: Tuning.sparkRadius)
+    }
+
+    private func popOff() {
+        railedIndex = nil
+        stickAccum = 0
+        notchCooldown = Tuning.notchCooldownSeconds
+        jolt()
     }
 
     private func clunkOff() {
         railedIndex = nil
-        dismountAccum = 0
+        stickAccum = 0
+        notchCooldown = Tuning.notchCooldownSeconds
         jolt()
         spark(at: pod.position, radius: Tuning.sparkRadius)
     }
 
+    // the spike: slam into the nearest rail, pay for it in speed
     private func slamLock() {
-        guard let i = railXs.indices.min(by: { abs(podX - railXs[$0]) < abs(podX - railXs[$1]) })
-        else { return }
+        guard let i = railTs.indices.min(by: {
+            laneDistance(podT, railTs[$0]) < laneDistance(podT, railTs[$1])
+        }) else { return }
         railedIndex = i
-        dismountAccum = 0
-        podX = railXs[i]
+        stickAccum = 0
+        podT = railTs[i]
         brakeRemaining = Tuning.brakeSeconds
         jolt()
-        spark(at: CGPoint(x: podX, y: trackY(podX) + Tuning.podSize.height),
-              radius: Tuning.sparkRadius)
+        spark(at: wallFrame(at: podT).point, radius: Tuning.sparkRadius)
     }
 
     private func podHop() {
@@ -607,6 +660,7 @@ final class GameScene: SKScene {
         let s = SKShapeNode(circleOfRadius: radius)
         s.position = point
         s.strokeColor = Palette.spark
+        s.fillColor = .clear
         s.lineWidth = Tuning.strokeWidth
         addChild(s)
         s.run(.sequence([
@@ -619,24 +673,18 @@ final class GameScene: SKScene {
     private func stepStripes(_ dt: TimeInterval) {
         stripePhase = (stripePhase + dt * Tuning.trackScrollPerSecond * forwardScale)
             .truncatingRemainder(dividingBy: 1)
+        let v = hexVertices
         for (i, stripe) in stripes.enumerated() {
             let d = (stripePhase + Double(i) / Double(Tuning.stripeCount))
                 .truncatingRemainder(dividingBy: 1)
             let path = CGMutablePath()
-            var first = true
-            for x in stride(from: leftWallX, through: rightWallX, by: Tuning.stripeSampleStep) {
-                let p = project(x, d).point
-                if first {
-                    path.move(to: p)
-                    first = false
-                } else {
-                    path.addLine(to: p)
-                }
-            }
+            path.addLines(between: v.map { projectPoint($0, d).point })
             stripe.path = path
             stripe.alpha = Tuning.stripeAlphaBase + Tuning.stripeAlphaGain * CGFloat(d)
         }
     }
+
+    // MARK: junk
 
     private func stepJunk(_ dt: TimeInterval) {
         junkSpawnCountdown -= dt
@@ -644,8 +692,7 @@ final class GameScene: SKScene {
             spawnJunk()
             junkSpawnCountdown = Tuning.junkSpawnSeconds
         }
-        // junk is stationary in the slot; it closes at the pod's forward
-        // speed, so going fast on a rail makes it loom twice as fast
+        // wreckage is stationary in the tube; it closes at your forward speed
         let closeRate = Tuning.trackScrollPerSecond * forwardScale
         for i in junkPieces.indices {
             junkPieces[i].progress += dt * closeRate
@@ -653,32 +700,36 @@ final class GameScene: SKScene {
             if piece.progress >= 1 {
                 resolveJunkArrival(piece)
             } else {
-                _ = place(piece.node, nearX: piece.laneX, depth: piece.progress,
-                          height: piece.size.height)
+                placeOnWall(piece.node, t: railTs[piece.rail], depth: piece.progress,
+                            height: piece.size.height)
+                piece.node.zRotation += piece.tilt
             }
         }
         junkPieces.removeAll { $0.progress >= 1 }
     }
 
-    // junk follows the rules too: it sits on a lane. Battle debris, so the
-    // pieces and sizes vary.
     private func spawnJunk() {
-        let lane = railXs.randomElement() ?? centerX
+        let rail = Int.random(in: 0..<Tuning.railCount)
         let art = Sprites.junkArts.randomElement() ?? Sprites.junkArts[0]
         let spread = CGFloat.random(in: Tuning.junkScaleMin...Tuning.junkScaleMax)
         let junkSize = CGSize(width: art.size.width * spread,
                               height: art.size.height * spread)
         let node = SKSpriteNode(texture: art.texture)
         node.size = junkSize
-        _ = place(node, nearX: lane, depth: 0, height: junkSize.height)
         addChild(node)
-        junkPieces.append(Junk(node: node, laneX: lane, size: junkSize, progress: 0))
+        let tilt = CGFloat.random(in: -Tuning.junkTiltRange...Tuning.junkTiltRange)
+        junkPieces.append(Junk(node: node, rail: rail, size: junkSize,
+                               tilt: tilt, progress: 0))
+        placeOnWall(node, t: railTs[rail], depth: 0, height: junkSize.height)
+        node.zRotation += tilt
     }
 
     private func resolveJunkArrival(_ piece: Junk) {
         let reach = (piece.size.width + Tuning.podSize.width) / 2
-        // an airborne pod sails over arriving junk
-        if abs(piece.laneX - podX) < reach, podAirRemaining <= 0 { stunPod() }
+        // an airborne pod sails over arriving wreckage
+        if laneDistance(railTs[piece.rail], podT) < reach, podAirRemaining <= 0 {
+            stunPod()
+        }
         piece.node.run(.sequence([.fadeOut(withDuration: Tuning.junkFadeSeconds),
                                   .removeFromParent()]))
     }
@@ -686,6 +737,7 @@ final class GameScene: SKScene {
     private func stunPod() {
         stunRemaining = Tuning.stunSeconds
         railedIndex = nil
+        notchCooldown = Tuning.notchCooldownSeconds
         let flickers = Int(Tuning.stunSeconds / (2 * Tuning.stunFlickerSeconds))
         pod.run(.repeat(.sequence([
             .fadeAlpha(to: Tuning.stunFlickerAlpha, duration: Tuning.stunFlickerSeconds),
@@ -693,13 +745,15 @@ final class GameScene: SKScene {
         ]), count: flickers))
     }
 
+    // MARK: the quarry
+
     private func stepSkimmer(_ dt: TimeInterval) {
         guard skimmerAlive else {
             respawnCountdown -= dt
             if respawnCountdown <= 0 { spawnSkimmer() }
             return
         }
-        // the quarry runs AWAY: the clock is the chase, the horizon is escape
+        // it runs for the far mouth: the clock is the chase
         skimmerElapsed += dt * escapeScale
         if skimmerElapsed / Tuning.passClockSeconds >= 1 {
             skimmerEscaped()
@@ -715,21 +769,21 @@ final class GameScene: SKScene {
         if let target = hopTarget {
             hopT += dt
             let t = min(1, hopT / Tuning.skimmerHopSeconds)
-            skimmerX = hopFromX + (railXs[target] - hopFromX) * CGFloat(t)
+            skimmerT = hopFromT + (railTs[target] - hopFromT) * CGFloat(t)
             if t >= 1 {
                 skimmerLane = target
                 hopTarget = nil
                 hopCountdown = nextHopDelay()
             }
         } else {
-            skimmerX = railXs[skimmerLane]
+            skimmerT = railTs[skimmerLane]
             hopCountdown -= dt
             if hopCountdown <= 0 { startHop() }
         }
         let progress = skimmerElapsed / Tuning.passClockSeconds
         let depth = Tuning.skimmerSpawnDepth * (1 - progress)
-        let f = place(skimmer, nearX: skimmerX, depth: depth,
-                      height: Tuning.skimmerSize.height)
+        let f = placeOnWall(skimmer, t: skimmerT, depth: depth,
+                            height: Tuning.skimmerSize.height)
         passRing.position = skimmer.position
         let ringScale = Tuning.passRingMinScale
             + (1 - Tuning.passRingMinScale) * CGFloat(1 - progress)
@@ -741,25 +795,23 @@ final class GameScene: SKScene {
     }
 
     private func startHop() {
-        let options = [skimmerLane - 1, skimmerLane + 1].filter { railXs.indices.contains($0) }
+        let options = [skimmerLane - 1, skimmerLane + 1].filter { railTs.indices.contains($0) }
         guard let target = options.randomElement() else { return }
         hopTarget = target
-        hopFromX = skimmerX
+        hopFromT = skimmerT
         hopT = 0
     }
 
-    // MARK: skimmer lifecycle
-
     private func spawnSkimmer() {
-        skimmerLane = railXs.indices.randomElement() ?? 0
-        skimmerX = railXs[skimmerLane]
+        skimmerLane = Int.random(in: 0..<Tuning.railCount)
+        skimmerT = railTs[skimmerLane]
         hopTarget = nil
         hopCountdown = nextHopDelay()
         skimmerElapsed = 0
         skimmerHasBraked = false
         skimmerAlive = true
-        let f = place(skimmer, nearX: skimmerX, depth: Tuning.skimmerSpawnDepth,
-                      height: Tuning.skimmerSize.height)
+        let f = placeOnWall(skimmer, t: skimmerT, depth: Tuning.skimmerSpawnDepth,
+                            height: Tuning.skimmerSize.height)
         passRing.position = skimmer.position
         passRing.setScale(f)
         skimmer.isHidden = false
@@ -775,7 +827,7 @@ final class GameScene: SKScene {
 
     private func killSkimmer() {
         kills += 1
-        spark(at: skimmer.position, radius: Tuning.hitRadius)
+        spark(at: skimmer.position, radius: Tuning.laneHitWidth / 2)
         for i in 0..<Tuning.fragmentCount {
             let frag = SKSpriteNode(color: Palette.enemyEngine, size: Tuning.fragmentSize)
             frag.position = skimmer.position
@@ -792,7 +844,7 @@ final class GameScene: SKScene {
         despawnSkimmer()
     }
 
-    // kablammo: the quarry made the distance
+    // kablammo: the quarry made the mouth
     private func skimmerEscaped() {
         passes += 1
         skyFlash.removeAllActions()
@@ -805,59 +857,42 @@ final class GameScene: SKScene {
 
     // MARK: fire
 
+    private var sightAnchor: CGPoint {
+        let frame = wallFrame(at: podT)
+        return CGPoint(x: frame.point.x + frame.wall.normal.dx * Tuning.podSize.height / 2,
+                       y: frame.point.y + frame.wall.normal.dy * Tuning.podSize.height / 2)
+    }
+
+    private var skimmerInLine: Bool {
+        skimmerAlive && laneDistance(skimmerT, podT) <= Tuning.laneHitWidth
+    }
+
+    private func stepSight() {
+        let near = sightAnchor
+        let far = projectPoint(near, 0).point
+        let path = CGMutablePath()
+        path.move(to: near)
+        path.addLine(to: far)
+        sightBeam.path = path
+        farSight.position = far
+        let junkInLine = junkPieces.contains {
+            laneDistance(railTs[$0.rail], podT) <= Tuning.laneHitWidth
+        }
+        let hot = skimmerInLine || junkInLine
+        sightBeam.alpha = hot ? Tuning.sightAlphaLock : Tuning.sightAlphaIdle
+        farSight.alpha = sightBeam.alpha
+        let lockColor = skimmerInLine ? Palette.enemyMarker : Palette.reticle
+        sightBeam.strokeColor = lockColor
+        farSight.strokeColor = lockColor
+    }
+
+    // the shot goes straight down the tube to the end, and owns its line
     private func fire() {
         guard stunRemaining <= 0 else { return }
-        // railed with the aim up your own notch: the bolt runs the lane and
-        // blasts everything in that line
-        if let i = railedIndex, aimIsUpLane(railXs[i]) {
-            fireUpLane(railXs[i])
-            return
-        }
-        drawTracer(to: crosshair.position)
-        // one target per shot: the skimmer first, then junk in the way
-        if skimmerAlive, aimDistance(to: skimmer.position) <= Tuning.hitRadius {
-            killSkimmer()
-            return
-        }
-        if let i = junkPieces.firstIndex(where: {
-            aimDistance(to: $0.node.position) <= Tuning.hitRadius
-        }) {
-            spark(at: junkPieces[i].node.position, radius: Tuning.sparkRadius)
-            junkPieces[i].node.removeFromParent()
-            junkPieces.remove(at: i)
-        }
-    }
-
-    // distance from the crosshair to the lane's line, near bump to horizon
-    private func aimIsUpLane(_ railX: CGFloat) -> Bool {
-        let a = CGPoint(x: railX, y: trackY(railX))
-        let b = project(railX, 0).point
-        let ab = CGPoint(x: b.x - a.x, y: b.y - a.y)
-        let ap = CGPoint(x: crosshair.position.x - a.x, y: crosshair.position.y - a.y)
-        let len2 = ab.x * ab.x + ab.y * ab.y
-        let t = ((ap.x * ab.x + ap.y * ab.y) / len2).clamped(0, 1)
-        let closest = CGPoint(x: a.x + ab.x * t, y: a.y + ab.y * t)
-        return hypot(crosshair.position.x - closest.x,
-                     crosshair.position.y - closest.y) <= Tuning.laneShotTolerance
-    }
-
-    private func fireUpLane(_ railX: CGFloat) {
-        drawTracer(to: project(railX, 0).point)
-        for piece in junkPieces where piece.laneX == railX {
-            spark(at: piece.node.position, radius: Tuning.sparkRadius)
-            piece.node.removeFromParent()
-        }
-        junkPieces.removeAll { $0.laneX == railX }
-        if skimmerAlive, hopTarget == nil, railXs[skimmerLane] == railX {
-            killSkimmer()
-        }
-    }
-
-    private func drawTracer(to point: CGPoint) {
         let tracer = SKShapeNode()
         let p = CGMutablePath()
-        p.move(to: pod.position)
-        p.addLine(to: point)
+        p.move(to: sightAnchor)
+        p.addLine(to: projectPoint(sightAnchor, 0).point)
         tracer.path = p
         tracer.strokeColor = Palette.tracer
         tracer.glowWidth = Tuning.tracerGlowWidth
@@ -865,10 +900,14 @@ final class GameScene: SKScene {
         addChild(tracer)
         tracer.run(.sequence([.fadeOut(withDuration: Tuning.tracerFadeSeconds),
                               .removeFromParent()]))
-    }
 
-    private func aimDistance(to point: CGPoint) -> CGFloat {
-        hypot(crosshair.position.x - point.x, crosshair.position.y - point.y)
+        for piece in junkPieces
+        where laneDistance(railTs[piece.rail], podT) <= Tuning.laneHitWidth {
+            spark(at: piece.node.position, radius: Tuning.sparkRadius)
+            piece.node.removeFromParent()
+        }
+        junkPieces.removeAll { laneDistance(railTs[$0.rail], podT) <= Tuning.laneHitWidth }
+        if skimmerInLine { killSkimmer() }
     }
 
     // MARK: input
@@ -884,8 +923,8 @@ final class GameScene: SKScene {
         }
         if event.keyCode == Key.down, !event.isARepeat, stunRemaining <= 0 {
             if event.timestamp - lastDownTap <= Tuning.railDoubleTapSeconds {
-                // double-down: off a rail = clunk off; on the floor = slam
-                // lock into the nearest rail, at the cost of a hard brake
+                // double-down: seated = clunk off; coasting = spike into the
+                // nearest rail, at the cost of a hard brake
                 if isRailed { clunkOff() } else { slamLock() }
             }
             lastDownTap = event.timestamp
