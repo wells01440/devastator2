@@ -74,7 +74,8 @@ enum Tuning {
     static let podSize = CGSize(width: 28, height: 16)
     static let skimmerSize = CGSize(width: 24, height: 14)
     static let passRingRadius: CGFloat = 22
-    static let junkSize = CGSize(width: 22, height: 12)
+    static let junkScaleMin: CGFloat = 0.7 // debris size spread around its art size
+    static let junkScaleMax: CGFloat = 1.4
     static let junkSpawnSeconds = 2.4
     static let respawnDelaySeconds = 0.6
 
@@ -85,9 +86,9 @@ enum Tuning {
     static let starMargin: CGFloat = 8
     static let starAlphas: [CGFloat] = [1, 0.7, 0.45]
     static let horizonGlowHeight: CGFloat = 3
-    static let earthX: CGFloat = 120
-    static let earthY: CGFloat = 350
-    static let earthSize = CGSize(width: 24, height: 24)
+    static let earthX: CGFloat = 150
+    static let earthY: CGFloat = 340
+    static let earthSize = CGSize(width: 72, height: 72)
     static let engineGlowSize = CGSize(width: 12, height: 4)
     static let railGlowWidth: CGFloat = 4
     static let tracerGlowWidth: CGFloat = 2
@@ -118,7 +119,5 @@ enum Tuning {
     static let passRingMinScale: CGFloat = 0.6
     static let strokeWidth: CGFloat = 1.5
     static let trackSampleStep: CGFloat = 4
-    static let debugFontSize: CGFloat = 10
-    static let debugInset: CGFloat = 8
     static let maxFrameDt = 0.05
 }

@@ -15,6 +15,7 @@ final class GameScene: SKScene {
     private struct Junk {
         let node: SKSpriteNode
         let laneX: CGFloat
+        let size: CGSize
         var progress: Double
     }
 
@@ -28,7 +29,6 @@ final class GameScene: SKScene {
     private let crosshair = SKShapeNode()
     private let skimmer = SKSpriteNode()
     private let passRing = SKShapeNode(circleOfRadius: Tuning.passRingRadius)
-    private let debugLine = SKLabelNode()
     private var stripes: [SKShapeNode] = []
 
     private var podX: CGFloat = 0
@@ -74,10 +74,6 @@ final class GameScene: SKScene {
     }
     private var escapeScale: Double {
         brakeRemaining > 0 ? Tuning.brakeEscapeScale : isRailed ? Tuning.railClockScale : 1
-    }
-
-    private func railLabel(_ i: Int) -> String {
-        i == 0 ? "L" : i == railXs.count - 1 ? "R" : "C"
     }
 
     // the trench profile, rear-forward view: flat floor, straight slopes to
@@ -298,13 +294,6 @@ final class GameScene: SKScene {
         crosshair.strokeColor = Palette.reticle
         crosshair.lineWidth = Tuning.strokeWidth
         addChild(crosshair)
-
-        debugLine.fontName = "Menlo"
-        debugLine.fontSize = Tuning.debugFontSize
-        debugLine.fontColor = Palette.debugText
-        debugLine.horizontalAlignmentMode = .left
-        debugLine.position = CGPoint(x: Tuning.debugInset, y: Tuning.debugInset)
-        addChild(debugLine)
     }
 
     // MARK: loop
@@ -318,17 +307,6 @@ final class GameScene: SKScene {
         stepStripes(dt)
         stepJunk(dt)
         stepSkimmer(dt)
-        let clock = skimmerAlive ? max(0, Tuning.passClockSeconds - skimmerElapsed) : 0
-        var state = ""
-        if stunRemaining > 0 {
-            state = "   STUN"
-        } else if brakeRemaining > 0 {
-            state = "   BRAKE"
-        } else if let i = railedIndex {
-            state = "   RAIL \(railLabel(i))"
-        }
-        debugLine.text = String(format: "kills %d   passes %d   clock %.1f%@",
-                                kills, passes, clock, state)
     }
 
     private func stepCrosshair(_ dt: TimeInterval) {
@@ -346,10 +324,10 @@ final class GameScene: SKScene {
         if held.contains(Key.up) { dy += 1 }
         if dx != 0 || dy != 0 {
             idleSeconds = 0
-            let r = Tuning.crosshairRadius
             let step = Tuning.crosshairSpeed * CGFloat(dt)
-            crosshair.position.x = (crosshair.position.x + dx * step).clamped(r, size.width - r)
-            crosshair.position.y = (crosshair.position.y + dy * step).clamped(r, size.height - r)
+            crosshair.position.x += dx * step
+            crosshair.position.y += dy * step
+            clampAim()
             return
         }
         // on a rail the controls are normal: the aim stays where you put it
@@ -367,6 +345,15 @@ final class GameScene: SKScene {
         crosshair.position.y += (aimRest.y - crosshair.position.y) * pull
     }
 
+    // the aim lives inside the slot: between the walls, above the track,
+    // below the rim. No focus outside the trench.
+    private func clampAim() {
+        let r = Tuning.crosshairRadius
+        let x = crosshair.position.x.clamped(leftWallX + r, rightWallX - r)
+        let y = crosshair.position.y.clamped(trackY(x) + r, Tuning.trenchRimY)
+        crosshair.position = CGPoint(x: x, y: y)
+    }
+
     private func stepPod(_ dt: TimeInterval) {
         brakeRemaining = max(0, brakeRemaining - dt)
         podAirRemaining = max(0, podAirRemaining - dt)
@@ -374,9 +361,9 @@ final class GameScene: SKScene {
         if let i = railedIndex {
             podX = railXs[i]
             let hardPort = held.contains(Key.left)
-                && crosshair.position.x <= Tuning.railEdgeMargin
+                && crosshair.position.x <= leftWallX + Tuning.railEdgeMargin
             let hardStarboard = held.contains(Key.right)
-                && crosshair.position.x >= size.width - Tuning.railEdgeMargin
+                && crosshair.position.x >= rightWallX - Tuning.railEdgeMargin
             if stunRemaining <= 0, hardPort || hardStarboard {
                 dismountAccum += dt
                 if dismountAccum >= Tuning.railDismountHoldSeconds { clunkOff() }
@@ -391,6 +378,7 @@ final class GameScene: SKScene {
             // the wonk: off-rail you steer yaw, pitch, and aim at once, so the
             // pod's motion smears the aim with it
             crosshair.position.x += (podX - prevX) * Tuning.wonkAimDrag
+            clampAim()
             for (i, railX) in railXs.enumerated()
             where abs(podX - railX) < Tuning.railSnapDistance
                 && abs(crosshair.position.x - railX) < Tuning.railAimSnapDistance {
@@ -500,24 +488,29 @@ final class GameScene: SKScene {
                 resolveJunkArrival(piece)
             } else {
                 _ = place(piece.node, nearX: piece.laneX, depth: piece.progress,
-                          height: Tuning.junkSize.height)
+                          height: piece.size.height)
             }
         }
         junkPieces.removeAll { $0.progress >= 1 }
     }
 
-    // junk follows the rules too: it sits on a lane
+    // junk follows the rules too: it sits on a lane. Battle debris, so the
+    // pieces and sizes vary.
     private func spawnJunk() {
         let lane = railXs.randomElement() ?? centerX
-        let node = SKSpriteNode(texture: Sprites.junk)
-        node.size = Tuning.junkSize
-        _ = place(node, nearX: lane, depth: 0, height: Tuning.junkSize.height)
+        let art = Sprites.junkArts.randomElement() ?? Sprites.junkArts[0]
+        let spread = CGFloat.random(in: Tuning.junkScaleMin...Tuning.junkScaleMax)
+        let junkSize = CGSize(width: art.size.width * spread,
+                              height: art.size.height * spread)
+        let node = SKSpriteNode(texture: art.texture)
+        node.size = junkSize
+        _ = place(node, nearX: lane, depth: 0, height: junkSize.height)
         addChild(node)
-        junkPieces.append(Junk(node: node, laneX: lane, progress: 0))
+        junkPieces.append(Junk(node: node, laneX: lane, size: junkSize, progress: 0))
     }
 
     private func resolveJunkArrival(_ piece: Junk) {
-        let reach = (Tuning.junkSize.width + Tuning.podSize.width) / 2
+        let reach = (piece.size.width + Tuning.podSize.width) / 2
         // an airborne pod sails over arriving junk
         if abs(piece.laneX - podX) < reach, podAirRemaining <= 0 { stunPod() }
         piece.node.run(.sequence([.fadeOut(withDuration: Tuning.junkFadeSeconds),

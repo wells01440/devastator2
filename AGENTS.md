@@ -39,19 +39,23 @@ continues.
 ## Current milestone: the graphic build
 
 Grey-box gameplay is accepted; do not change mechanics without the
-owner. The DS-era look lands in passes. Pass 1 (done): Palette.swift
-role colors, Sprites.swift pixel-art pod/Skimmer/junk/Earth (nearest
-filtering, 2 scene points per art pixel), starfield and Earth in the
-sky, horizon glow, lit bevel facets on the slot's cut faces, hot rails
-with glow, reticle crosshair, engine glow while railed, kill
-fragments. Remaining passes, roughly in order: brink-time danger
-reddening, level palette themes, richer trench dressing and parallax,
-a real HUD replacing the debug line, cut-scene beats, music through
+owner. "DS era" means that era of graphics only, never the dual-screen
+form: no info screen, no bottom panel. The debug line is gone; any
+future HUD is diegetic, in the world. Pass 1 (done): Palette.swift
+role colors, Sprites.swift pixel-art sprites (nearest filtering, 2
+scene points per art pixel), starfield, horizon glow, lit bevel facets
+on the slot's cut faces, hot rails with glow, reticle, engine glow
+while railed, kill fragments. Pass 2 (done): Earth big — it hangs over
+everything, it is the point; junk is battle debris (wing, hull chunk,
+girder, bits) in varied sizes; the aim is caged inside the slot
+(clampAim: between the walls, above the track, below the rim), which
+is the Tempest feel. Remaining passes, roughly in order: brink-time
+danger reddening, level palette themes, trench dressing and parallax,
+diegetic score/state readouts, cut-scene beats, music through
 AVAudioEngine per Assets/Music/MANIFEST.md, pads via GameController.
 
 Controls: arrows aim, space fires, double-tap up hops, double-tap down
-slam-locks or clunks off, Q quits. The debug line bottom-left shows
-kills, passes, the chase clock, and RAIL/BRAKE/STUN state.
+slam-locks or clunks off, Q quits.
 
 Settled gameplay (the grey-box outcome):
 

@@ -58,36 +58,90 @@ enum Sprites {
         "E": Palette.enemyEngine,
     ])
 
-    // wreckage on the tracks
-    static let junk = texture([
-        "...KKJ.....",
-        ".KJJJJK....",
-        "KJJJJJJKK..",
-        ".KJJJJJJJK.",
-        "..KJJJJJK..",
-        "....KKK....",
-    ], [
-        "J": Palette.junkDark,
-        "K": Palette.junkLight,
-    ])
+    // battle debris on the tracks: pieces of craft, bits and bobs
+    struct JunkArt {
+        let texture: SKTexture
+        let size: CGSize
+    }
 
-    // what you are defending
+    static let junkArts: [JunkArt] = [
+        // a sheared wing
+        JunkArt(texture: texture([
+            "..........KK.",
+            ".......KKWWK.",
+            "....KKWWWWK..",
+            ".KKWWWWWWK...",
+            "KWWWWWKKK....",
+        ], [
+            "W": Palette.enemyHull,
+            "K": Palette.junkLight,
+        ]), size: CGSize(width: 26, height: 10)),
+        // a hull chunk with a dead viewport
+        JunkArt(texture: texture([
+            ".KKKKKK..",
+            "KWWWWWWK.",
+            "KWRRWWWKK",
+            "KWRRWWWWK",
+            "KWWWWKKK.",
+            ".KWWWK...",
+            "..KKK....",
+        ], [
+            "W": Palette.podHullDark,
+            "R": Palette.junkDark,
+            "K": Palette.junkLight,
+        ]), size: CGSize(width: 18, height: 14)),
+        // a girder strut
+        JunkArt(texture: texture([
+            "KKWWKKWWKKWWKK",
+            "KWWKKWWKKWWKKW",
+            "..KKWWKKWWKK..",
+        ], [
+            "W": Palette.junkDark,
+            "K": Palette.junkLight,
+        ]), size: CGSize(width: 28, height: 6)),
+        // a bit. also a bob
+        JunkArt(texture: texture([
+            ".KW..",
+            "KWWK.",
+            ".KWWK",
+            "..KK.",
+        ], [
+            "W": Palette.junkDark,
+            "K": Palette.junkLight,
+        ]), size: CGSize(width: 10, height: 8)),
+    ]
+
+    // what you are defending. It hangs over everything; that is the point.
     static let earth = texture([
-        "...AAAAAA...",
-        ".AAOOOONOAA.",
-        ".AOONNNNOOA.",
-        "AOONNOOOONOA",
-        "AOONOOOOONNA",
-        "AOOOOOOONNNA",
-        "AOOOOOONNNOA",
-        "AONOOOOOOOOA",
-        "AONNOOOOOOOA",
-        ".AONNOOOONA.",
-        ".AAOOOOOOAA.",
-        "...AAAAAA...",
+        "...........AA...........",
+        ".......AAAAAAAAAA.......",
+        ".....AIIIIIIIIIIIIA.....",
+        "....AIIOOOOONNOOOIIA....",
+        "...AIOOOONNNNOOOOOOIA...",
+        "..AOOOONNNNNNOOOOOOOOA..",
+        "..AOOONNNNNNNNOOODDOOA..",
+        ".AOOONNNNNNNNNOODDDOOOA.",
+        ".AOODNNNNNNNOOOODDDOOOA.",
+        "AOODDNNNNNOOOOOODDOOOOOA",
+        "AOOODDNNNOOOOOOOOOOONOOA",
+        "AOOOODNNOOOOOOOOOONNNOOA",
+        "AOOOOOOOOOOOOOOOONNNNOOA",
+        "AODOOOOOOOOOOOOONNNNNOOA",
+        "AODDOOOOOOOOOOOONNNNOOOA",
+        ".AODDOOOOOOOOOONNNOOOOA.",
+        ".AOODOOOOOOOOOONNOOOOOA.",
+        "..AOOOOOOONOOOOOOOOOOA..",
+        "..AOOOOOONNNOOOOOOOOOA..",
+        "...AOOOOONNOOOOOOOOIA...",
+        "....AIOOOOOOOOOOIIIA....",
+        ".....AIIIIIIIIIIIIA.....",
+        ".......AAAAAAAAAA.......",
+        "...........AA...........",
     ], [
         "A": Palette.earthAtmos,
+        "I": Palette.earthIce,
         "O": Palette.earthOcean,
+        "D": Palette.earthOceanDeep,
         "N": Palette.earthLand,
     ])
 }

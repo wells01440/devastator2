@@ -33,7 +33,9 @@ enum Palette {
     // earth
     static let earthAtmos = SKColor(red: 0.55, green: 0.75, blue: 1.0, alpha: 1)
     static let earthOcean = SKColor(red: 0.15, green: 0.35, blue: 0.80, alpha: 1)
+    static let earthOceanDeep = SKColor(red: 0.10, green: 0.24, blue: 0.60, alpha: 1)
     static let earthLand = SKColor(red: 0.25, green: 0.60, blue: 0.30, alpha: 1)
+    static let earthIce = SKColor(red: 0.90, green: 0.96, blue: 1.0, alpha: 1)
 
     // interface and effects
     static let reticle = SKColor(red: 0.55, green: 1.0, blue: 0.65, alpha: 1)
