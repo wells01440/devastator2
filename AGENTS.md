@@ -98,10 +98,17 @@ grey-box outcome — "aiming should be side to side only"):
   clock at railClockScale) and steady. A sustained directional pull
   pops the notch (Tuning.railStickSeconds); coasting between rails is
   slow. notchCooldownSeconds prevents an instant re-click.
-- The hop: double-tap up jumps. Clearance is the jump arc against the
-  wreck's height (Tuning.junkClearanceFactor): small bits clear almost
-  anywhere in the arc, big wreckage needs the top of the jump. The
+- Jumps: single up-tap hops; clearance is the jump arc against the
+  wreck's height (Tuning.junkClearanceFactor), so small bits clear
+  almost anywhere in the arc and big wreckage needs the top of the
+  jump. A second up-tap in the window is the BIG JUMP: a committed
+  slo-mo leap (Tuning.bigJumpSloMo on the world clock) to the opposite
+  wall's rail, flipping through the bore; off the floor, whose
+  opposite face is the open roof, it goes straight up and back. The
+  big jump clears all junk. Sound pass owes it a whoosh. The
   double-down spike is CUT (owner: simpler play); down does nothing.
+- The hull: Tuning.hullMax pips on the glass HUD; junk costs one plus
+  the stun; empty resets full with Tuning.invulnSeconds of grace.
 - The shot goes straight down the tube to the end and owns
   Tuning.laneHitWidth of the ring: every junk piece in the line dies,
   and the UFO dies if its perimeter position is in the line, mid-hop

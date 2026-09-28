@@ -41,11 +41,17 @@ enum Tuning {
     static let notchCooldownSeconds = 0.4 // no instant re-click after popping out
     static let railDoubleTapSeconds = 0.3
 
-    // the hop: double-up jumps junk. Clearance is the arc against the
-    // wreck's height, so bigger junk needs the top of the jump.
+    // jumps: single up is the regular hop; a second tap mid-hop is the big
+    // jump, a slo-mo leap to the opposite rail (straight up from the floor,
+    // which faces the open roof). Hop clearance is the arc against the
+    // wreck's height, so bigger junk needs the top of the jump; the big
+    // jump clears everything.
     static let podHopSeconds = 0.45
     static let podHopHeight: CGFloat = 26
     static let junkClearanceFactor: CGFloat = 1.0
+    static let bigJumpSeconds = 0.75
+    static let bigJumpHeight: CGFloat = 52 // the vertical big jump off the floor
+    static let bigJumpSloMo = 0.35 // world rate while airborne on a big jump
 
     // the quarry: rides the rails and runs for the far mouth
     static let skimmerSpawnDepth = 0.85 // how close ahead it starts
@@ -68,10 +74,14 @@ enum Tuning {
     static let podSize = CGSize(width: 28, height: 16)
     static let skimmerSize = CGSize(width: 44, height: 20)
     static let passRingRadius: CGFloat = 28
-    static let junkScaleMin: CGFloat = 0.7 // debris size spread around its art size
-    static let junkScaleMax: CGFloat = 1.8
+    static let junkScaleMin: CGFloat = 0.8 // debris size spread around its art size
+    static let junkScaleMax: CGFloat = 1.6
     static let junkSpawnSeconds = 2.4
     static let respawnDelaySeconds = 0.6
+
+    // the hull: junk costs one pip; empty resets with a grace flash
+    static let hullMax = 3
+    static let invulnSeconds = 1.2
 
     // earthrise
     static let earthX: CGFloat = 256
@@ -140,6 +150,26 @@ enum Tuning {
     static let stripeCount = 5
     static let stripeAlphaBase: CGFloat = 0.05
     static let stripeAlphaGain: CGFloat = 0.18
+
+    // tunnel fixtures: bright light rings sweeping past, and station stops
+    static let lightRingCount = 2
+    static let lightRingWidth: CGFloat = 2.5
+    static let lightRingAlphaBase: CGFloat = 0.2
+    static let lightRingAlphaGain: CGFloat = 0.8
+    static let stationIntervalSeconds = 11.0
+    static let stationSlabSize = CGSize(width: 64, height: 8)
+    static let stationWindowSize = CGSize(width: 52, height: 3)
+    static let stationSignSize = CGSize(width: 10, height: 4)
+
+    // the glass canopy over the roof slot, and the HUD projected on it
+    static let glassBandHeight: CGFloat = 12
+    static let glassAlpha: CGFloat = 0.08
+    static let glassSheetAlpha: CGFloat = 0.05
+    static let glintAlpha: CGFloat = 0.18
+    static let hudFontSize: CGFloat = 11
+    static let hudPipSize = CGSize(width: 8, height: 8)
+    static let hudPipGap: CGFloat = 6
+    static let hudUrgentSeconds = 3.0
 
     // the sight: your firing line down the tube, and the far mouth it ends at
     static let sightAlphaIdle: CGFloat = 0.12

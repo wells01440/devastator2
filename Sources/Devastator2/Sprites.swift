@@ -25,37 +25,56 @@ enum Sprites {
         return tex
     }
 
-    // the gun pod from behind: turret, hull, rail skids, engines
+    // the gun pod from behind at full working resolution: turret glass,
+    // shoulder lights, belly plate, twin rail skids with engine wash
     static let pod = texture([
-        "......TT......",
-        ".....HTTH.....",
-        "...HHHHHHHH...",
-        "..HLLHHHHLLH..",
-        ".HHHHHHHHHHHH.",
-        ".HDEEHHHHEEDH.",
-        "..DEED..DEED..",
-        "..D..D..D..D..",
+        "............TTTT............",
+        "...........TTTTTT...........",
+        "..........HHTTTTHH..........",
+        ".......HHHHHHHHHHHHHH.......",
+        "......HLLHHHHHHHHHHLLH......",
+        ".....HLLHHHHHHHHHHHHLLH.....",
+        "....HHHHHHHHHHHHHHHHHHHH....",
+        "...HHHHHHHHHHHHHHHHHHHHHH...",
+        "..HDDHHHHHHHHHHHHHHHHHHDDH..",
+        "..HDEEDHHHHHHHHHHHHHHDEEDH..",
+        "..HDEEDHHHDDDDDDDDHHHDEEDH..",
+        "..HDEEDHHDDDDDDDDDDHHDEEDH..",
+        "...DDEEDDHHHHHHHHHHDDEEDD...",
+        "....DEEED..........DEEED....",
+        "....DD.DD..........DD.DD....",
+        ".....D..D............D..D...",
     ], [
-        "T": Palette.podHullLight,
+        "T": Palette.ufoGlass,
         "L": Palette.podHullLight,
         "H": Palette.podHull,
         "D": Palette.podHullDark,
         "E": Palette.podEngine,
     ])
 
-    // the opponent: a saucer, frisbee-proud. Glass dome with a glint,
-    // running lights around the rim, tractor glow underneath.
+    // the opponent at full working resolution: a saucer, frisbee-proud.
+    // Glass dome with a glint, running lights, tractor wash and prongs.
     static let skimmer = texture([
-        ".........GGGG.........",
-        "........GggGGGG.......",
-        ".......GGGGGGGGG......",
-        "....MMMMMMMMMMMMMM....",
-        ".MMMMMMMMMMMMMMMMMMMM.",
-        "MLMMLLMMLMMLLMMLLMMLLM",
-        ".mmmmmmmmmmmmmmmmmmmm.",
-        "...mmmEEEEEEEEEEmmm...",
-        ".....mEEEEEEEEEEm.....",
-        ".......EE....EE.......",
+        "..................GGGGGGGG..................",
+        "................GGggggGGGGGG................",
+        "..............GGggggggGGGGGGGG..............",
+        ".............GGgggggGGGGGGGGGGG.............",
+        "............GGggggGGGGGGGGGGGGGG............",
+        "............GGGGGGGGGGGGGGGGGGGG............",
+        "...........MGGGGGGGGGGGGGGGGGGGGM...........",
+        "......MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM......",
+        "...MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM...",
+        ".MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM.",
+        "MLLMMLLMMLLMMLLMMLLMMLLMMLLMMLLMMLLMMLLMMLLM",
+        ".mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm.",
+        "...mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm...",
+        "......mmmEEEEEEEEEEEEEEEEEEEEEEEEEEmmm......",
+        ".........mEEEEEEEEEEEEEEEEEEEEEEEEm.........",
+        "............EEEEEEEEEEEEEEEEEEEE............",
+        "..............EE....EEEE....EE..............",
+        "...............EE....EE....EE...............",
+        "................E....EE....E................",
+        "..................EE....EE..................",
     ], [
         "G": Palette.ufoGlass,
         "g": Palette.ufoGlint,
@@ -81,47 +100,81 @@ enum Sprites {
         "B": Palette.bone,
     ])
 
-    // battle debris on the tracks: pieces of craft, bits and bobs
+    // battle debris on the tracks: big, detailed, dangerous. Hazard stripes
+    // and dead beacons; pieces of the transit system and the war.
     struct JunkArt {
         let texture: SKTexture
         let size: CGSize
     }
 
     static let junkArts: [JunkArt] = [
-        // a sheared wing
+        // a wrecked transit car: windows dark, hazard chevrons, torn frame
         JunkArt(texture: texture([
-            "..........KK.",
-            ".......KKWWK.",
-            "....KKWWWWK..",
-            ".KKWWWWWWK...",
-            "KWWWWWKKK....",
-        ], [
-            "W": Palette.enemyHull,
-            "K": Palette.junkLight,
-        ]), size: CGSize(width: 26, height: 10)),
-        // a hull chunk with a dead viewport
-        JunkArt(texture: texture([
-            ".KKKKKK..",
-            "KWWWWWWK.",
-            "KWRRWWWKK",
-            "KWRRWWWWK",
-            "KWWWWKKK.",
-            ".KWWWK...",
-            "..KKK....",
+            "....KKKKKKKKKKKKKKKKKKKKKKKKKKKK....",
+            "...KWWWWWWWWWWWWWWWWWWWWWWWWWWWWK...",
+            "..KWGGWWGGWWGGWWGGWWGGWWGGWWGGWWGK..",
+            "..KWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWK..",
+            "..KYJYJYJYJYJYJYJYJYJYJYJYJYJYJYJK..",
+            "..KWWWWWWWWWWWWWWRRWWWWWWWWWWWWWWK..",
+            "..KWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWK..",
+            "..KWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWK..",
+            "...JJWWWWJJWWWWWWJJWWWWWWJJWWWJJJ...",
+            "....JJJWWJJJWWWWJJJWWWWJJJWWJJJJ....",
+            "......JJ..JJJJ....JJJJ....JJJJ......",
+            "........KK....KKKK....KKKK..........",
+            "..........J..J........J..J..........",
+            "............K....KK....K............",
         ], [
             "W": Palette.podHullDark,
-            "R": Palette.junkDark,
+            "G": Palette.trenchAir,
             "K": Palette.junkLight,
-        ]), size: CGSize(width: 18, height: 14)),
-        // a girder strut
+            "J": Palette.junkDark,
+            "Y": Palette.hazard,
+            "R": Palette.enemyMarker,
+        ]), size: CGSize(width: 36, height: 14)),
+        // half a downed saucer, engines dead, keel torn open
         JunkArt(texture: texture([
-            "KKWWKKWWKKWWKK",
-            "KWWKKWWKKWWKKW",
-            "..KKWWKKWWKK..",
+            ".........MMMMMM...............",
+            "......MMGGgGMMMMMMMM..........",
+            "...MMMMMMMMMMMMMYYMMMMMM......",
+            ".MLLMMLLMMLLMMMMJJJJMMMLLMMM..",
+            "mmmmmmmmmmmmmmJJJJJJmmmmmmmmmm",
+            ".mmmmmmmmmmmmJJJJJJJJmmmmmmm..",
+            "...mmEEEEmmmmmJJJJmmmEEmm.....",
+            "......mJJm....mEEmRR..........",
+            "..........JJ..JJRR............",
+            ".............J..J.............",
         ], [
-            "W": Palette.junkDark,
+            "M": Palette.ufoHull,
+            "m": Palette.ufoHullDark,
+            "G": Palette.ufoGlass,
+            "g": Palette.ufoGlint,
+            "L": Palette.ufoLight,
+            "E": Palette.enemyEngine,
+            "J": Palette.junkDark,
+            "Y": Palette.hazard,
+            "R": Palette.enemyMarker,
+        ]), size: CGSize(width: 30, height: 10)),
+        // a tangle of crossed girders, hazard-tipped
+        JunkArt(texture: texture([
+            "YY..............................YY",
+            ".KK............................KK.",
+            "..KKJ........................JKK..",
+            "...JKKJ....................JKKJ...",
+            "....JJKKJ................JKKJJ....",
+            ".....JJJKKJJ..........JJKKJJJ.....",
+            "......JJJJKKJJJJJJJJJJKKJJJJ......",
+            ".....JJJKKJJJJJJJJJJJJJJKKJJJ.....",
+            "....JJKKJJ....JJJJ....JJJKKJJ.....",
+            "...JKKJ........RR........JKKJ.....",
+            "..KKJ......................JKK....",
+            ".YY..........................YY...",
+        ], [
             "K": Palette.junkLight,
-        ]), size: CGSize(width: 28, height: 6)),
+            "J": Palette.junkDark,
+            "Y": Palette.hazard,
+            "R": Palette.enemyMarker,
+        ]), size: CGSize(width: 34, height: 12)),
         // a bit. also a bob
         JunkArt(texture: texture([
             ".KW..",

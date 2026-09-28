@@ -43,6 +43,23 @@ final class GameScene: SKScene {
         var depth: Double
     }
 
+    private struct BigJump {
+        let fromAnchor: CGPoint
+        let toAnchor: CGPoint
+        let fromRot: CGFloat
+        let toRot: CGFloat
+        let landT: CGFloat
+        let landRail: Int?
+        let vertical: Bool
+        var remaining: TimeInterval
+    }
+
+    private struct Station {
+        let node: SKNode
+        let t: CGFloat
+        var depth: Double
+    }
+
     // MARK: state
 
     private var held = Set<UInt16>()
@@ -61,6 +78,12 @@ final class GameScene: SKScene {
     private var railStrips: [SKShapeNode] = []
     private var stripes: [SKShapeNode] = []
     private var streamers: [Streamer] = []
+    private var lightRings: [SKShapeNode] = []
+    private var lightRingPhase = 0.0
+    private var stations: [Station] = []
+    private var stationCountdown: TimeInterval = 0
+    private let launchLabel = SKLabelNode()
+    private var hullPips: [SKSpriteNode] = []
 
     private var walls: [Wall] = []
     private var perimeterLength: CGFloat = 0
@@ -73,6 +96,9 @@ final class GameScene: SKScene {
     private var notchCooldown: TimeInterval = 0
     private var lastUpTap: TimeInterval = 0
     private var podAirRemaining: TimeInterval = 0
+    private var bigJump: BigJump?
+    private var hull = Tuning.hullMax
+    private var invulnRemaining: TimeInterval = 0
     private var stunRemaining: TimeInterval = 0
     private var idleSeconds: TimeInterval = 0
     private var stripePhase = 0.0
@@ -434,6 +460,68 @@ final class GameScene: SKScene {
             stripes.append(stripe)
         }
 
+        // bright tunnel light rings, sweeping past as fixtures
+        for _ in 0..<Tuning.lightRingCount {
+            let ring = SKShapeNode()
+            ring.strokeColor = Palette.railHot
+            ring.lineWidth = Tuning.lightRingWidth
+            ring.glowWidth = Tuning.railGlowWidth
+            ring.blendMode = .add
+            addChild(ring)
+            lightRings.append(ring)
+        }
+
+        // the glass canopy: a glazed sheet running the roof slot down the
+        // tube, and the near band the HUD projects on
+        let sheet = CGMutablePath()
+        sheet.addLines(between: [v[5], v[0],
+                                 scaled(v[0], Tuning.farPointScale),
+                                 scaled(v[5], Tuning.farPointScale)])
+        sheet.closeSubpath()
+        let glassSheet = SKShapeNode(path: sheet)
+        glassSheet.fillColor = Palette.ufoGlass.withAlphaComponent(Tuning.glassSheetAlpha)
+        glassSheet.strokeColor = .clear
+        addChild(glassSheet)
+
+        let band = SKSpriteNode(color: Palette.ufoGlass,
+                                size: CGSize(width: v[5].x - v[0].x,
+                                             height: Tuning.glassBandHeight))
+        band.alpha = Tuning.glassAlpha
+        band.position = CGPoint(x: centerX, y: Tuning.hexTopY - Tuning.glassBandHeight / 2)
+        addChild(band)
+        for i in 0..<2 {
+            let glint = SKShapeNode()
+            let gp = CGMutablePath()
+            let gx = v[0].x + (v[5].x - v[0].x) * (i == 0 ? 0.2 : 0.7)
+            gp.move(to: CGPoint(x: gx, y: Tuning.hexTopY - Tuning.glassBandHeight))
+            gp.addLine(to: CGPoint(x: gx + Tuning.glassBandHeight, y: Tuning.hexTopY))
+            glint.path = gp
+            glint.strokeColor = Palette.ufoGlint
+            glint.lineWidth = Tuning.strokeWidth
+            glint.alpha = Tuning.glintAlpha
+            addChild(glint)
+        }
+
+        // the HUD, projected on the glass: launch clock and hull pips
+        launchLabel.fontName = "Menlo-Bold"
+        launchLabel.fontSize = Tuning.hudFontSize
+        launchLabel.fontColor = Palette.railHot
+        launchLabel.verticalAlignmentMode = .center
+        launchLabel.position = CGPoint(x: centerX,
+                                       y: Tuning.hexTopY - Tuning.glassBandHeight / 2)
+        launchLabel.zPosition = 3
+        addChild(launchLabel)
+        for i in 0..<Tuning.hullMax {
+            let pip = SKSpriteNode(color: Palette.podEngine, size: Tuning.hudPipSize)
+            pip.position = CGPoint(
+                x: v[0].x + Tuning.hudPipGap + Tuning.hudPipSize.width / 2
+                    + CGFloat(i) * (Tuning.hudPipSize.width + Tuning.hudPipGap),
+                y: Tuning.hexTopY - Tuning.glassBandHeight / 2)
+            pip.zPosition = 3
+            addChild(pip)
+            hullPips.append(pip)
+        }
+
         // the far mouth: the exit the quarry is running for
         let mouthPath = CGMutablePath()
         mouthPath.addLines(between: v.map { projectPoint($0, 0).point })
@@ -575,17 +663,131 @@ final class GameScene: SKScene {
         lastTime = currentTime
         guard dt > 0 else { return }
         worldTime += dt
+        // the big jump plays at full speed while the world goes slo-mo
+        let worldDt = bigJump == nil ? dt : dt * Tuning.bigJumpSloMo
         stepPod(dt)
-        stepStripes(dt)
-        stepStreamers(dt)
-        stepJunk(dt)
-        stepSkimmer(dt)
+        stepStripes(worldDt)
+        stepStreamers(worldDt)
+        stepRings(worldDt)
+        stepStations(worldDt)
+        stepJunk(worldDt)
+        stepSkimmer(worldDt)
         stepSight()
+        stepHud()
+    }
+
+    private func stepRings(_ dt: TimeInterval) {
+        lightRingPhase = (lightRingPhase + dt * Tuning.trackScrollPerSecond * forwardScale)
+            .truncatingRemainder(dividingBy: 1)
+        let v = hexVertices
+        for (i, ring) in lightRings.enumerated() {
+            let d = (lightRingPhase + Double(i) / Double(Tuning.lightRingCount))
+                .truncatingRemainder(dividingBy: 1)
+            let path = CGMutablePath()
+            path.addLines(between: v.map { projectPoint($0, d).point })
+            ring.path = path
+            ring.alpha = Tuning.lightRingAlphaBase
+                + Tuning.lightRingAlphaGain * CGFloat(d)
+        }
+    }
+
+    private func stepStations(_ dt: TimeInterval) {
+        stationCountdown -= dt
+        if stationCountdown <= 0 {
+            spawnStation()
+            stationCountdown = Tuning.stationIntervalSeconds
+        }
+        for i in stations.indices {
+            stations[i].depth += dt * Tuning.trackScrollPerSecond * forwardScale
+            let s = stations[i]
+            if s.depth < 1 {
+                placeOnWall(s.node, t: s.t, depth: s.depth, height: 0)
+            } else {
+                s.node.run(.sequence([.fadeOut(withDuration: Tuning.junkFadeSeconds),
+                                      .removeFromParent()]))
+            }
+        }
+        stations.removeAll { $0.depth >= 1 }
+    }
+
+    // a transit stop sliding past: platform slab, window band, lit sign
+    private func spawnStation() {
+        let node = SKNode()
+        node.zPosition = 0.5
+        let slab = SKSpriteNode(color: Palette.surface, size: Tuning.stationSlabSize)
+        slab.position = CGPoint(x: 0, y: Tuning.stationSlabSize.height / 2)
+        node.addChild(slab)
+        let windows = SKSpriteNode(color: Palette.ufoGlass, size: Tuning.stationWindowSize)
+        windows.position = CGPoint(x: 0, y: Tuning.stationSlabSize.height
+                                   + Tuning.stationWindowSize.height / 2)
+        node.addChild(windows)
+        let sign = SKSpriteNode(color: Palette.railHot, size: Tuning.stationSignSize)
+        sign.blendMode = .add
+        sign.position = CGPoint(x: Tuning.stationSlabSize.width / 2,
+                                y: Tuning.stationSlabSize.height * 2)
+        node.addChild(sign)
+        addChild(node)
+        let wall = [1, 2, 3].randomElement() ?? 2
+        let shift = (Tuning.stationSlabSize.width / 2 + Tuning.railGlowHalfLength)
+            / perimeterLength
+        let t = railTs[wall] + (Bool.random() ? shift : -shift)
+        placeOnWall(node, t: t, depth: 0, height: 0)
+        stations.append(Station(node: node, t: t, depth: 0))
+    }
+
+    private func stepHud() {
+        if skimmerAlive {
+            let remaining = max(0, Tuning.passClockSeconds - skimmerElapsed)
+            launchLabel.text = String(format: "LAUNCH T-%04.1f", remaining)
+            launchLabel.fontColor = remaining < Tuning.hudUrgentSeconds
+                ? Palette.enemyMarker : Palette.railHot
+            launchLabel.alpha = 1
+        } else {
+            launchLabel.text = "TUBE CLEAR"
+            launchLabel.fontColor = Palette.railHot
+            launchLabel.alpha = 0.5
+        }
+        for (i, pip) in hullPips.enumerated() {
+            pip.alpha = i < hull ? 1 : 0.15
+        }
     }
 
     private func stepPod(_ dt: TimeInterval) {
         podAirRemaining = max(0, podAirRemaining - dt)
         notchCooldown = max(0, notchCooldown - dt)
+        invulnRemaining = max(0, invulnRemaining - dt)
+
+        // the big jump: a committed leap across the bore, world in slo-mo
+        if var jump = bigJump {
+            jump.remaining -= dt
+            if jump.remaining <= 0 {
+                bigJump = nil
+                podT = jump.landT
+                railedIndex = jump.landRail
+                podRotation = jump.toRot
+                jolt()
+                spark(at: wallFrame(at: podT).point, radius: Tuning.sparkRadius)
+            } else {
+                bigJump = jump
+                let u = CGFloat(1 - jump.remaining / Tuning.bigJumpSeconds)
+                if jump.vertical {
+                    let frame = wallFrame(at: jump.landT)
+                    let lift = Tuning.podSize.height / 2
+                        + Tuning.bigJumpHeight * CGFloat(sin(Double.pi * Double(u)))
+                    pod.position = CGPoint(x: frame.point.x + frame.wall.normal.dx * lift,
+                                           y: frame.point.y + frame.wall.normal.dy * lift)
+                } else {
+                    pod.position = CGPoint(
+                        x: jump.fromAnchor.x + (jump.toAnchor.x - jump.fromAnchor.x) * u,
+                        y: jump.fromAnchor.y + (jump.toAnchor.y - jump.fromAnchor.y) * u)
+                    podRotation = jump.fromRot + (jump.toRot - jump.fromRot) * u
+                }
+                pod.zRotation = podRotation
+                engineGlow.isHidden = false
+                engineGlow.alpha = 1
+                return
+            }
+        }
 
         var dir: CGFloat = 0
         if held.contains(Key.left) { dir -= 1 }
@@ -678,8 +880,40 @@ final class GameScene: SKScene {
     }
 
     private func podHop() {
-        guard podAirRemaining <= 0 else { return }
+        guard podAirRemaining <= 0, bigJump == nil else { return }
         podAirRemaining = Tuning.podHopSeconds
+    }
+
+    // to the opposite wall's rail; off the floor, straight up and back
+    private func startBigJump() {
+        guard bigJump == nil else { return }
+        let from = railedIndex
+            ?? railTs.indices.min { laneDistance(podT, railTs[$0]) < laneDistance(podT, railTs[$1]) }
+            ?? Tuning.railCount / 2
+        podAirRemaining = 0
+        let fromFrame = wallFrame(at: podT)
+        let fromAnchor = CGPoint(
+            x: fromFrame.point.x + fromFrame.wall.normal.dx * Tuning.podSize.height / 2,
+            y: fromFrame.point.y + fromFrame.wall.normal.dy * Tuning.podSize.height / 2)
+        if from == Tuning.railCount / 2 {
+            bigJump = BigJump(fromAnchor: fromAnchor, toAnchor: fromAnchor,
+                              fromRot: podRotation, toRot: wallFrame(at: podT).wall.rotation,
+                              landT: podT, landRail: railedIndex,
+                              vertical: true, remaining: Tuning.bigJumpSeconds)
+        } else {
+            let target = (from + 3) % 6
+            let landT = railTs[target]
+            let toFrame = wallFrame(at: landT)
+            let toAnchor = CGPoint(
+                x: toFrame.point.x + toFrame.wall.normal.dx * Tuning.podSize.height / 2,
+                y: toFrame.point.y + toFrame.wall.normal.dy * Tuning.podSize.height / 2)
+            bigJump = BigJump(fromAnchor: fromAnchor, toAnchor: toAnchor,
+                              fromRot: podRotation, toRot: toFrame.wall.rotation,
+                              landT: landT, landRail: target,
+                              vertical: false, remaining: Tuning.bigJumpSeconds)
+        }
+        railedIndex = nil
+        stickAccum = 0
     }
 
     private func jolt() {
@@ -759,7 +993,8 @@ final class GameScene: SKScene {
 
     private func resolveJunkArrival(_ piece: Junk) {
         let reach = (piece.size.width + Tuning.podSize.width) / 2
-        if laneDistance(railTs[piece.rail], podT) < reach {
+        if bigJump == nil, invulnRemaining <= 0,
+           laneDistance(railTs[piece.rail], podT) < reach {
             // clearance is the jump arc against the wreck: bigger junk needs
             // the top of the arc
             var cleared = false
@@ -768,10 +1003,19 @@ final class GameScene: SKScene {
                 let lift = Tuning.podHopHeight * CGFloat(sin(Double.pi * t))
                 cleared = lift > piece.size.height * Tuning.junkClearanceFactor
             }
-            if !cleared { stunPod() }
+            if !cleared { damagePod() }
         }
         piece.node.run(.sequence([.fadeOut(withDuration: Tuning.junkFadeSeconds),
                                   .removeFromParent()]))
+    }
+
+    private func damagePod() {
+        hull -= 1
+        stunPod()
+        if hull <= 0 {
+            hull = Tuning.hullMax
+            invulnRemaining = Tuning.invulnSeconds
+        }
     }
 
     private func stunPod() {
@@ -962,7 +1206,10 @@ final class GameScene: SKScene {
             return
         }
         if event.keyCode == Key.up, !event.isARepeat, stunRemaining <= 0 {
+            // one tap hops; a second tap in the window is the big jump
             if event.timestamp - lastUpTap <= Tuning.railDoubleTapSeconds {
+                startBigJump()
+            } else {
                 podHop()
             }
             lastUpTap = event.timestamp

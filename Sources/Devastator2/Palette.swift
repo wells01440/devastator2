@@ -42,6 +42,7 @@ enum Palette {
     static let ufoLight = SKColor(red: 1.0, green: 0.85, blue: 0.30, alpha: 1)
     static let junkDark = SKColor(red: 0.28, green: 0.26, blue: 0.24, alpha: 1)
     static let junkLight = SKColor(red: 0.48, green: 0.45, blue: 0.40, alpha: 1)
+    static let hazard = SKColor(red: 0.95, green: 0.78, blue: 0.15, alpha: 1)
 
     // earth
     static let earthAtmos = SKColor(red: 0.55, green: 0.75, blue: 1.0, alpha: 1)
