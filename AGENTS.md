@@ -7,11 +7,11 @@ raise conflicts with the owner instead.
 
 ## State
 
-Grey-box round 2, playable. Round 1 shipped the six milestone steps;
-the owner's first feel pass asked for motion, moving obstacles, a flat
-floor with sloped sides, and the monorail. All are in. The core round-1
-complaint was fighting the aim; the rail and the gravity grace are the
-answers under test.
+Grey-box round 3, playable. Round 1 shipped the six milestone steps.
+Round 2 added motion, streaming junk, the flat floor, and the monorail.
+Round 3 inverted the polarity on the owner's second feel pass: the rail
+is home base with normal controls, off-rail is the wonky off-script
+state. Junk is shootable.
 
 ## Layout
 
@@ -44,44 +44,45 @@ crosshair on the Skimmer. The clock expiring counts a pass and flashes
 the sky band. Q quits. The debug line bottom-left shows kills, passes,
 the pass clock, and RAIL or STUN state.
 
-Round 2, from the owner's first feel pass:
+Round 3 gameplay, per the owner's second feel pass:
 
-- Trench profile is a flat floor with straight sloped sides
-  (Tuning.flatHalfWidth).
-- Motion: transverse track stripes sweep from the far rim to the near
-  surface at Tuning.trackScrollPerSecond.
-- The fixed obstacle is replaced by streaming junk: pieces spawn every
-  Tuning.junkSpawnSeconds, race down the trench, and slide past. Junk
-  arriving on the pod stuns it (Tuning.stunSeconds): controls cut,
-  gravity drags the aim home hard, fire disabled.
-- The monorail runs down the floor center. Snap on by putting pod and
-  aim on the line. While railed: the pod locks to the rail and the aim
-  is free (the answer to fighting the aim), the pass clock drains at
-  Tuning.railClockScale, stripes scroll at Tuning.railScrollScale. The
-  lock: leaving takes a sustained aim pull past Tuning.railBreakDistance
-  for Tuning.railBreakSeconds, junk favors the rail lane
-  (Tuning.railJunkChance), and a hit stuns and derails.
+- The view is the 2D rear-forward cross-section (owner's call, "not the
+  3d rendering, just the two-d"). The rail is a bump on the floor at
+  center (Tuning.railBumpHalfWidth/Height), not a depth line.
+- The rail is home base. Ride the pod onto the bump with the aim near
+  center and it notches in: jolt, spark, RAIL. Railed, the controls are
+  normal: direct aim, no gravity, the pod holds the rail. The pass
+  clock drains at Tuning.railClockScale and stripes scroll at
+  Tuning.railScrollScale (the go-fast).
+- Off-rail is off script: slower scroll, and the controls go wonky
+  because yaw, pitch, and aim are one input; the pod's motion smears
+  the crosshair by Tuning.wonkAimDrag. Gravity pulls the aim down to
+  trench level and, from the slopes, in toward the flat area only; it
+  does not drag you to center from the flat.
+- Two ways off the rail, both under test: shove the aim hard to a
+  screen edge and hold (port/starboard clunk toward that side), or
+  double-tap down (clunk off in place).
+- Junk streams down the trench and is shootable out of the way; a
+  piece arriving on the pod stuns (controls cut, hard gravity, fire
+  disabled) and derails. Junk favors the rail lane
+  (Tuning.railJunkChance).
 
 DESIGN.md deltas pending the owner's verdict: fixed obstacles as cover
-are out of the grey-box in favor of streaming junk, and the monorail is
-new. Fold both into DESIGN.md once the owner confirms the feel. Gravity
-recenter reads as a natural fit for an analog stick (owner); pads
-arrive later via GameController.
+became streaming shootable junk; the monorail is new and is home base;
+the view is 2D rear-forward, so pseudo-3D row scaling may be cut.
+Gravity recenter reads as a natural fit for an analog stick (owner);
+pads arrive later via GameController.
 
-The flat reading of the trench: the profile is the near cross-section;
-Skimmer and junk descend from the rim (far) to the track surface (near).
-Pseudo-3D row scaling replaces this later.
-
-Feel candidates for the pass: aimFollowLag, gravityRecenterPerSecond,
-gravityGraceSeconds, crosshairSpeed, hitRadius, the rail constants, the
-junk cadence.
+Feel candidates for the pass: the two dismounts, wonkAimDrag,
+aimFollowLag, gravityRecenterPerSecond, gravityGraceSeconds,
+crosshairSpeed, hitRadius, the rail constants, the junk cadence.
 
 Rules while the grey-box lives: every constant goes in Tuning.swift;
 keep the scene tree flat and disposable; no music, no art, no score
 display beyond the debug line.
 
-After the feel pass: pseudo-3D row scaling, scoring with brink tiers,
-more racer types.
+After the feel pass: scoring with brink tiers, more racer types, and a
+depth treatment that keeps the 2D rear-forward view.
 
 ## Conventions
 

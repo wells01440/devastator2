@@ -33,13 +33,17 @@ enum Tuning {
     static let skimmerWeaveHz = 0.35
     static let trackScrollPerSecond = 0.55 // stripe sweep, track lengths per second
 
-    // the monorail: locked pod, free aim, slowed pass clock
+    // the monorail: home base. Notched in, controls are normal and you go
+    // fast; off the rail you are slower and the controls go wonky.
     static let railClockScale = 0.5 // pass clock drain while railed
-    static let railScrollScale = 2.0 // the speed-doubling read
-    static let railSnapDistance: CGFloat = 12
-    static let railBreakDistance: CGFloat = 110 // aim pull needed to leave
-    static let railBreakSeconds = 0.35 // sustained pull needed to leave
+    static let railScrollScale = 2.0 // the go-fast read
+    static let railSnapDistance: CGFloat = 12 // pod over the bump notches in
+    static let railAimSnapDistance: CGFloat = 40 // aim must be near center too
+    static let railEdgeMargin: CGFloat = 24 // aim hard over = within this of a screen edge
+    static let railDismountHoldSeconds = 0.3 // hard over held this long = clunk off
+    static let railDoubleTapSeconds = 0.3 // double-tap down = clunk off in place
     static let railJunkChance = 0.35 // junk that targets the rail lane
+    static let wonkAimDrag: CGFloat = 0.25 // off-rail, pod yaw smears the aim
 
     // grey-box geometry, scene points
     static let skyBandHeight: CGFloat = 64
@@ -47,6 +51,8 @@ enum Tuning {
     static let trenchBottomY: CGFloat = 64
     static let trenchWallInset: CGFloat = 72
     static let flatHalfWidth: CGFloat = 88 // flat floor half width; slopes rise beyond it
+    static let railBumpHalfWidth: CGFloat = 14 // the rail is a bump on the floor
+    static let railBumpHeight: CGFloat = 6
     static let aimRestHeight: CGFloat = 40 // gravity's aim target above the floor
     static let crosshairRadius: CGFloat = 9
     static let podSize = CGSize(width: 28, height: 16)
@@ -65,6 +71,10 @@ enum Tuning {
     static let passFlashOutSeconds = 0.4
     static let stunFlickerSeconds = 0.1
     static let stunFlickerAlpha: CGFloat = 0.25
+    static let joltScaleY: CGFloat = 0.7
+    static let joltInSeconds = 0.05
+    static let joltOutSeconds = 0.08
+    static let sparkRadius: CGFloat = 10
     static let junkFadeSeconds = 0.15
     static let stripeCount = 6
     static let stripeSampleStep: CGFloat = 8

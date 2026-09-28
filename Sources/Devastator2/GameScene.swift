@@ -22,7 +22,7 @@ final class GameScene: SKScene {
     private var lastTime: TimeInterval = 0
 
     private let skyFlash = SKSpriteNode()
-    private let railLine = SKShapeNode()
+    private let railGlow = SKShapeNode()
     private let pod = SKSpriteNode()
     private let crosshair = SKShapeNode()
     private let skimmer = SKSpriteNode()
@@ -32,7 +32,8 @@ final class GameScene: SKScene {
 
     private var podX: CGFloat = 0
     private var railed = false
-    private var railBreakAccum: TimeInterval = 0
+    private var dismountAccum: TimeInterval = 0
+    private var lastDownTap: TimeInterval = 0
     private var stunRemaining: TimeInterval = 0
     private var idleSeconds: TimeInterval = 0
     private var stripePhase = 0.0
@@ -49,13 +50,20 @@ final class GameScene: SKScene {
     private var leftWallX: CGFloat { Tuning.trenchWallInset }
     private var rightWallX: CGFloat { size.width - Tuning.trenchWallInset }
     private var railX: CGFloat { centerX }
+    private var flatMinX: CGFloat { centerX - Tuning.flatHalfWidth }
+    private var flatMaxX: CGFloat { centerX + Tuning.flatHalfWidth }
     private var aimRest: CGPoint {
         CGPoint(x: centerX, y: Tuning.trenchBottomY + Tuning.aimRestHeight)
     }
 
-    // the trench profile: flat floor, straight slopes to the rim at the walls
+    // the trench profile, rear-forward view: flat floor with the rail bump at
+    // center, straight slopes to the rim at the walls
     private func trackY(_ x: CGFloat) -> CGFloat {
         let a = abs(x - centerX)
+        if a <= Tuning.railBumpHalfWidth {
+            let t = a / Tuning.railBumpHalfWidth
+            return Tuning.trenchBottomY + Tuning.railBumpHeight * (1 - t * t)
+        }
         guard a > Tuning.flatHalfWidth else { return Tuning.trenchBottomY }
         let run = centerX - Tuning.trenchWallInset - Tuning.flatHalfWidth
         let t = min(1, (a - Tuning.flatHalfWidth) / run)
@@ -109,14 +117,24 @@ final class GameScene: SKScene {
         rock.lineWidth = Tuning.strokeWidth
         addChild(rock)
 
-        let rail = CGMutablePath()
-        rail.move(to: CGPoint(x: railX, y: Tuning.trenchRimY))
-        rail.addLine(to: CGPoint(x: railX, y: Tuning.trenchBottomY))
-        railLine.path = rail
-        railLine.strokeColor = .white
-        railLine.lineWidth = Tuning.railLineWidth
-        railLine.alpha = Tuning.railIdleAlpha
-        addChild(railLine)
+        let glow = CGMutablePath()
+        var first = true
+        for x in stride(from: railX - Tuning.railBumpHalfWidth,
+                        through: railX + Tuning.railBumpHalfWidth,
+                        by: Tuning.trackSampleStep) {
+            let p = CGPoint(x: x, y: trackY(x) + Tuning.strokeWidth)
+            if first {
+                glow.move(to: p)
+                first = false
+            } else {
+                glow.addLine(to: p)
+            }
+        }
+        railGlow.path = glow
+        railGlow.strokeColor = .white
+        railGlow.lineWidth = Tuning.railLineWidth
+        railGlow.alpha = Tuning.railIdleAlpha
+        addChild(railGlow)
 
         for _ in 0..<Tuning.stripeCount {
             let stripe = SKShapeNode()
@@ -180,9 +198,7 @@ final class GameScene: SKScene {
         if stunRemaining > 0 {
             stunRemaining -= dt
             let rate = Tuning.gravityRecenterPerSecond * Tuning.stunGravityMultiplier
-            let pull = CGFloat(min(1, rate * dt))
-            crosshair.position.x += (aimRest.x - crosshair.position.x) * pull
-            crosshair.position.y += (aimRest.y - crosshair.position.y) * pull
+            pullAimHome(CGFloat(min(1, rate * dt)))
             return
         }
         var dx: CGFloat = 0
@@ -191,47 +207,95 @@ final class GameScene: SKScene {
         if held.contains(Key.right) { dx += 1 }
         if held.contains(Key.down) { dy -= 1 }
         if held.contains(Key.up) { dy += 1 }
-        if dx == 0 && dy == 0 {
-            idleSeconds += dt
-            guard idleSeconds >= Tuning.gravityGraceSeconds else { return }
-            let pull = CGFloat(min(1, Tuning.gravityRecenterPerSecond * dt))
-            crosshair.position.x += (aimRest.x - crosshair.position.x) * pull
-            crosshair.position.y += (aimRest.y - crosshair.position.y) * pull
-        } else {
+        if dx != 0 || dy != 0 {
             idleSeconds = 0
             let r = Tuning.crosshairRadius
             let step = Tuning.crosshairSpeed * CGFloat(dt)
             crosshair.position.x = (crosshair.position.x + dx * step).clamped(r, size.width - r)
             crosshair.position.y = (crosshair.position.y + dy * step).clamped(r, size.height - r)
+            return
         }
+        // on the rail the controls are normal: the aim stays where you put it
+        guard !railed else { return }
+        idleSeconds += dt
+        guard idleSeconds >= Tuning.gravityGraceSeconds else { return }
+        pullAimHome(CGFloat(min(1, Tuning.gravityRecenterPerSecond * dt)))
+    }
+
+    // gravity pulls the aim down to trench level and, on the slopes, in toward
+    // the flat area; on the flat it leaves the lateral position alone
+    private func pullAimHome(_ pull: CGFloat) {
+        let gx = crosshair.position.x.clamped(flatMinX, flatMaxX)
+        crosshair.position.x += (gx - crosshair.position.x) * pull
+        crosshair.position.y += (aimRest.y - crosshair.position.y) * pull
     }
 
     private func stepPod(_ dt: TimeInterval) {
         let halfW = Tuning.podSize.width / 2
         if railed {
             podX = railX
-            if abs(crosshair.position.x - railX) > Tuning.railBreakDistance {
-                railBreakAccum += dt
-                if railBreakAccum >= Tuning.railBreakSeconds { railed = false }
+            let hardPort = held.contains(Key.left)
+                && crosshair.position.x <= Tuning.railEdgeMargin
+            let hardStarboard = held.contains(Key.right)
+                && crosshair.position.x >= size.width - Tuning.railEdgeMargin
+            if stunRemaining <= 0, hardPort || hardStarboard {
+                dismountAccum += dt
+                if dismountAccum >= Tuning.railDismountHoldSeconds { clunkOff() }
             } else {
-                railBreakAccum = 0
+                dismountAccum = 0
             }
         } else {
+            let prevX = podX
             let targetX = crosshair.position.x.clamped(leftWallX + halfW, rightWallX - halfW)
             let follow = CGFloat(1 - exp(-dt / Tuning.aimFollowLag))
             podX += (targetX - podX) * follow
-            // snapping needs both pod and aim on the rail, so a sweep across
-            // center does not snag
+            // the wonk: off-rail you steer yaw, pitch, and aim at once, so the
+            // pod's motion smears the aim with it
+            crosshair.position.x += (podX - prevX) * Tuning.wonkAimDrag
             if abs(podX - railX) < Tuning.railSnapDistance,
-               abs(crosshair.position.x - railX) < Tuning.railSnapDistance {
-                railed = true
-                railBreakAccum = 0
-                podX = railX
+               abs(crosshair.position.x - railX) < Tuning.railAimSnapDistance {
+                notchIn()
             }
         }
         pod.position = CGPoint(x: podX, y: trackY(podX) + Tuning.podSize.height / 2)
         pod.color = grey(railed ? Tuning.podRailGrey : Tuning.podGrey)
-        railLine.alpha = railed ? 1 : Tuning.railIdleAlpha
+        railGlow.alpha = railed ? 1 : Tuning.railIdleAlpha
+    }
+
+    private func notchIn() {
+        railed = true
+        dismountAccum = 0
+        podX = railX
+        jolt()
+        spark(at: CGPoint(x: railX, y: trackY(railX) + Tuning.podSize.height),
+              radius: Tuning.sparkRadius)
+    }
+
+    private func clunkOff() {
+        railed = false
+        dismountAccum = 0
+        jolt()
+        spark(at: pod.position, radius: Tuning.sparkRadius)
+    }
+
+    private func jolt() {
+        pod.run(.sequence([
+            .scaleY(to: Tuning.joltScaleY, duration: Tuning.joltInSeconds),
+            .scaleY(to: 1, duration: Tuning.joltOutSeconds),
+        ]))
+    }
+
+    private func spark(at point: CGPoint, radius: CGFloat) {
+        let s = SKShapeNode(circleOfRadius: radius)
+        s.position = point
+        s.strokeColor = .white
+        s.lineWidth = Tuning.strokeWidth
+        addChild(s)
+        s.run(.sequence([
+            .group([.scale(to: Tuning.killPopScale, duration: Tuning.tracerFadeSeconds),
+                    .fadeOut(withDuration: Tuning.tracerFadeSeconds)]),
+            .removeFromParent(),
+        ]))
     }
 
     private func stepStripes(_ dt: TimeInterval) {
@@ -351,16 +415,7 @@ final class GameScene: SKScene {
 
     private func killSkimmer() {
         kills += 1
-        let pop = SKShapeNode(circleOfRadius: Tuning.hitRadius)
-        pop.position = skimmer.position
-        pop.strokeColor = .white
-        pop.lineWidth = Tuning.strokeWidth
-        addChild(pop)
-        pop.run(.sequence([
-            .group([.scale(to: Tuning.killPopScale, duration: Tuning.tracerFadeSeconds),
-                    .fadeOut(withDuration: Tuning.tracerFadeSeconds)]),
-            .removeFromParent(),
-        ]))
+        spark(at: skimmer.position, radius: Tuning.hitRadius)
         despawnSkimmer()
     }
 
@@ -389,10 +444,22 @@ final class GameScene: SKScene {
         tracer.run(.sequence([.fadeOut(withDuration: Tuning.tracerFadeSeconds),
                               .removeFromParent()]))
 
-        guard skimmerAlive else { return }
-        let d = hypot(crosshair.position.x - skimmer.position.x,
-                      crosshair.position.y - skimmer.position.y)
-        if d <= Tuning.hitRadius { killSkimmer() }
+        // one target per shot: the skimmer first, then junk in the way
+        if skimmerAlive, aimDistance(to: skimmer.position) <= Tuning.hitRadius {
+            killSkimmer()
+            return
+        }
+        if let i = junkPieces.firstIndex(where: {
+            aimDistance(to: $0.node.position) <= Tuning.hitRadius
+        }) {
+            spark(at: junkPieces[i].node.position, radius: Tuning.sparkRadius)
+            junkPieces[i].node.removeFromParent()
+            junkPieces.remove(at: i)
+        }
+    }
+
+    private func aimDistance(to point: CGPoint) -> CGFloat {
+        hypot(crosshair.position.x - point.x, crosshair.position.y - point.y)
     }
 
     // MARK: input
@@ -405,6 +472,12 @@ final class GameScene: SKScene {
         if event.keyCode == Key.space {
             if !event.isARepeat { fire() }
             return
+        }
+        if event.keyCode == Key.down, railed, !event.isARepeat, stunRemaining <= 0 {
+            if event.timestamp - lastDownTap <= Tuning.railDoubleTapSeconds {
+                clunkOff()
+            }
+            lastDownTap = event.timestamp
         }
         held.insert(event.keyCode)
     }
