@@ -117,8 +117,8 @@ rewrite): free 2D aim is CUT — one-axis movement, position is aim; the
 trench became the hexagonal transit tube with five rails and an open
 surface side; enemies flee rather than approach; junk is stationary
 shootable wreckage; the view is 2D rear-forward with scale-by-depth.
-The sky-band escapee phase needs a new treatment (no vertical aim);
-candidates: a mouth shot or a cut-scene beat. Pads later via
+An escape resolves as the kill-shot cut scene, as DESIGN.md always had
+it; losing vertical aim changes nothing there. Pads later via
 GameController. Owner ideas parked: thrown junk (at you, or up in the
 air), the Groove reshaping over time (rail positions moving), race
 mode. Two-player: front-to-back offset on the same ring.
