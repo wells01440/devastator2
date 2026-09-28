@@ -50,12 +50,14 @@ Round 3 gameplay, per the owner's second feel pass:
 - The view is the 2D rear-forward cross-section (owner's call, "not the
   3d rendering, just the two-d"). The rail is a bump on the floor at
   center (Tuning.railBumpHalfWidth/Height), not a depth line.
-- Three rails on the floor, left center right (Tuning.railOffsetsX).
-  A rail is home base. Ride the pod onto a bump with the aim near it
-  and it notches in: jolt, spark, RAIL L/C/R in the debug line. Railed,
-  the controls are normal: direct aim, no gravity, the pod holds the
-  rail. The pass clock drains at Tuning.railClockScale and stripes
-  scroll at Tuning.railScrollScale (the go-fast).
+- Three rails, Tempest positions (Tuning.railOffsetsX): the center of
+  the left wall, the floor, the center of the right wall. Each is a
+  bump riding the profile, with a faint lane line running from the far
+  rim into it. A rail is home base. Ride the pod onto a bump with the
+  aim near it and it notches in: jolt, spark, RAIL L/C/R in the debug
+  line. Railed, the controls are normal: direct aim, no gravity, the
+  pod holds the rail. The pass clock drains at Tuning.railClockScale
+  and stripes scroll at Tuning.railScrollScale (the go-fast).
 - Racers follow the same mechanics (owner's call). The Skimmer spawns
   on a rail, rides it, and hops to an adjacent lane every
   Tuning.skimmerHopIntervalSeconds plus jitter. A railed pod bodily
@@ -70,10 +72,11 @@ Round 3 gameplay, per the owner's second feel pass:
 - Two ways off the rail, both under test: shove the aim hard to a
   screen edge and hold (port/starboard clunk toward that side), or
   double-tap down (clunk off in place).
-- Junk streams down the trench and is shootable out of the way; a
-  piece arriving on the pod stuns (controls cut, hard gravity, fire
-  disabled) and derails. Junk favors the rail lane
-  (Tuning.railJunkChance).
+- Junk follows the rules too: every piece rides one of the three
+  lanes. It is shootable out of the way; a piece arriving on the pod
+  stuns (controls cut, hard gravity, fire disabled) and derails.
+  Off-rail floor space is junk-free, so hiding between lanes is safe
+  and slow.
 
 DESIGN.md deltas pending the owner's verdict: fixed obstacles as cover
 became streaming shootable junk; the three-lane monorail system is new

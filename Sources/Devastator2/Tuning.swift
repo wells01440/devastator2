@@ -40,7 +40,7 @@ enum Tuning {
 
     // the monorails: home base, three lanes. Notched in, controls are normal
     // and you go fast; off the rail you are slower and the controls go wonky.
-    static let railOffsetsX: [CGFloat] = [-64, 0, 64] // lane positions from trench center
+    static let railOffsetsX: [CGFloat] = [-136, 0, 136] // wall centers and the floor
     static let railClockScale = 0.5 // pass clock drain while railed
     static let railScrollScale = 2.0 // the go-fast read
     static let railSnapDistance: CGFloat = 12 // pod over the bump notches in
@@ -48,7 +48,6 @@ enum Tuning {
     static let railEdgeMargin: CGFloat = 24 // aim hard over = within this of a screen edge
     static let railDismountHoldSeconds = 0.3 // hard over held this long = clunk off
     static let railDoubleTapSeconds = 0.3 // double-tap down = clunk off in place
-    static let railJunkChance = 0.35 // junk that targets the rail lane
     static let wonkAimDrag: CGFloat = 0.25 // off-rail, pod yaw smears the aim
 
     // grey-box geometry, scene points
@@ -88,6 +87,8 @@ enum Tuning {
     static let stripeAlphaGain: CGFloat = 0.28
     static let railLineWidth: CGFloat = 3
     static let railIdleAlpha: CGFloat = 0.4
+    static let laneLineAlpha: CGFloat = 0.22
+    static let passRingMinScale: CGFloat = 0.6
     static let strokeWidth: CGFloat = 1.5
     static let trackSampleStep: CGFloat = 4
     static let debugFontSize: CGFloat = 10

@@ -66,19 +66,25 @@ final class GameScene: SKScene {
         i == 0 ? "L" : i == railXs.count - 1 ? "R" : "C"
     }
 
-    // the trench profile, rear-forward view: flat floor with a rail bump per
-    // lane, straight slopes to the rim at the walls
-    private func trackY(_ x: CGFloat) -> CGFloat {
-        if let nearest = railXs.min(by: { abs(x - $0) < abs(x - $1) }),
-           abs(x - nearest) <= Tuning.railBumpHalfWidth {
-            let t = abs(x - nearest) / Tuning.railBumpHalfWidth
-            return Tuning.trenchBottomY + Tuning.railBumpHeight * (1 - t * t)
-        }
+    // the trench profile, rear-forward view: flat floor, straight slopes to
+    // the rim at the walls
+    private func baseProfileY(_ x: CGFloat) -> CGFloat {
         let a = abs(x - centerX)
         guard a > Tuning.flatHalfWidth else { return Tuning.trenchBottomY }
         let run = centerX - Tuning.trenchWallInset - Tuning.flatHalfWidth
         let t = min(1, (a - Tuning.flatHalfWidth) / run)
         return Tuning.trenchBottomY + (Tuning.trenchRimY - Tuning.trenchBottomY) * t
+    }
+
+    // each rail is a bump riding the profile, wall or floor
+    private func trackY(_ x: CGFloat) -> CGFloat {
+        var y = baseProfileY(x)
+        if let nearest = railXs.min(by: { abs(x - $0) < abs(x - $1) }),
+           abs(x - nearest) <= Tuning.railBumpHalfWidth {
+            let t = abs(x - nearest) / Tuning.railBumpHalfWidth
+            y += Tuning.railBumpHeight * (1 - t * t)
+        }
+        return y
     }
 
     // depth 0 is the far rim, depth 1 is the near track surface at x
@@ -128,6 +134,19 @@ final class GameScene: SKScene {
         rock.lineWidth = Tuning.strokeWidth
         addChild(rock)
 
+        // lane lines: the rails run from the far rim down into their bumps,
+        // so riding one is visible
+        for railX in railXs {
+            let lane = CGMutablePath()
+            lane.move(to: CGPoint(x: railX, y: Tuning.trenchRimY))
+            lane.addLine(to: CGPoint(x: railX, y: trackY(railX)))
+            let laneNode = SKShapeNode(path: lane)
+            laneNode.strokeColor = grey(Tuning.edgeGrey)
+            laneNode.lineWidth = Tuning.strokeWidth
+            laneNode.alpha = Tuning.laneLineAlpha
+            addChild(laneNode)
+        }
+
         for railX in railXs {
             let glow = CGMutablePath()
             var first = true
@@ -165,6 +184,7 @@ final class GameScene: SKScene {
         addChild(skimmer)
 
         passRing.strokeColor = .white
+        passRing.fillColor = .clear
         passRing.lineWidth = Tuning.strokeWidth
         addChild(passRing)
 
@@ -364,12 +384,9 @@ final class GameScene: SKScene {
         junkPieces.removeAll { $0.progress >= 1 }
     }
 
+    // junk follows the rules too: it rides a lane
     private func spawnJunk() {
-        let half = Tuning.junkSize.width / 2
-        let onRail = Double.random(in: 0..<1) < Tuning.railJunkChance
-        let lane = onRail
-            ? railXs.randomElement() ?? centerX
-            : CGFloat.random(in: (leftWallX + half)...(rightWallX - half))
+        let lane = railXs.randomElement() ?? centerX
         let node = SKSpriteNode(color: grey(Tuning.junkGrey), size: Tuning.junkSize)
         node.position = CGPoint(x: lane, y: depthY(lane, 0, height: Tuning.junkSize.height))
         addChild(node)
@@ -427,7 +444,9 @@ final class GameScene: SKScene {
         skimmer.position = CGPoint(x: skimmerX,
                                    y: depthY(skimmerX, progress, height: Tuning.skimmerSize.height))
         passRing.position = skimmer.position
-        passRing.setScale(CGFloat(1 - progress))
+        let ringScale = Tuning.passRingMinScale
+            + (1 - Tuning.passRingMinScale) * CGFloat(1 - progress)
+        passRing.setScale(ringScale)
     }
 
     private func nextHopDelay() -> TimeInterval {
