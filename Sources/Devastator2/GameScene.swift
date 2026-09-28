@@ -26,10 +26,18 @@ final class GameScene: SKScene {
 
     private struct Junk {
         let node: SKSpriteNode
+        let ping: SKShapeNode
         let rail: Int
         let size: CGSize
         let tilt: CGFloat
         var progress: Double
+    }
+
+    private struct TurboPad {
+        let node: SKShapeNode
+        let rail: Int
+        let isLast: Bool
+        var depth: Double
     }
 
     private enum StreamerFlavor {
@@ -67,7 +75,7 @@ final class GameScene: SKScene {
     }
 
     private enum PickupKind {
-        case gun, shield
+        case gun, shield, points, multiplier
     }
 
     private struct Pickup {
@@ -109,7 +117,15 @@ final class GameScene: SKScene {
     private var shootCountdown: TimeInterval = 0
     private var gunLevel = 1
     private var skimmerHp = Tuning.skimmerHitsToKill
+    private var skimmerHpPips: [SKSpriteNode] = []
     private var score = 0
+    private var scoreMultiplier = 1
+    private var devastatorBanked = false
+    private let devastatorLamp = SKShapeNode()
+    private var turboPads: [TurboPad] = []
+    private var turboChainBroken = false
+    private var turboCountdown: TimeInterval = 0
+    private var turboRemaining: TimeInterval = 0
 
     private var walls: [Wall] = []
     private var perimeterLength: CGFloat = 0
@@ -148,12 +164,13 @@ final class GameScene: SKScene {
     private var isRailed: Bool { railedIndex != nil }
     private var bottomRailT: CGFloat { railTs[Tuning.railCount / 2] }
 
-    // your forward speed through the tube, and how fast the quarry gains
+    // your forward speed through the tube, and how fast the quarry gains:
+    // turbo outruns everything, and even rewinds the chase
     private var forwardScale: Double {
-        isRailed ? Tuning.railScrollScale : 1
+        turboRemaining > 0 ? Tuning.turboScrollScale : isRailed ? Tuning.railScrollScale : 1
     }
     private var escapeScale: Double {
-        isRailed ? Tuning.railClockScale : 1
+        turboRemaining > 0 ? Tuning.turboEscapeScale : isRailed ? Tuning.railClockScale : 1
     }
 
     // MARK: the bore
@@ -283,6 +300,7 @@ final class GameScene: SKScene {
         junkSpawnCountdown = Tuning.junkSpawnSeconds
         stationCountdown = Tuning.stationFirstSeconds
         pickupCountdown = Tuning.pickupFirstSeconds
+        turboCountdown = Tuning.turboChainIntervalSeconds / 2
         spawnSkimmer()
     }
 
@@ -587,6 +605,23 @@ final class GameScene: SKScene {
             addChild(pip)
             hullPips.append(pip)
         }
+        // the DEVASTATOR lamp: a diamond beside the launch clock
+        let lampPath = CGMutablePath()
+        let lr = Tuning.hudPipSize.width * 0.9
+        lampPath.addLines(between: [CGPoint(x: 0, y: lr), CGPoint(x: lr, y: 0),
+                                    CGPoint(x: 0, y: -lr), CGPoint(x: -lr, y: 0)])
+        lampPath.closeSubpath()
+        devastatorLamp.path = lampPath
+        devastatorLamp.fillColor = Palette.hazard
+        devastatorLamp.strokeColor = Palette.ufoGlint
+        devastatorLamp.lineWidth = Tuning.strokeWidth / 2
+        devastatorLamp.glowWidth = Tuning.tracerGlowWidth
+        devastatorLamp.position = CGPoint(x: centerX - 70,
+                                          y: Tuning.hexTopY - Tuning.glassBandHeight / 2)
+        devastatorLamp.zPosition = 3
+        devastatorLamp.alpha = 0.15
+        addChild(devastatorLamp)
+
         for i in 0..<Tuning.gunLevelMax {
             let pip = SKSpriteNode(color: Palette.hazard, size: Tuning.hudPipSize)
             pip.position = CGPoint(
@@ -776,8 +811,66 @@ final class GameScene: SKScene {
         stepSkimmer(worldDt)
         stepBolts(worldDt)
         stepPickups(worldDt)
+        stepTurbo(worldDt, realDt: dt)
         stepSight()
         stepHud()
+    }
+
+    // turbo gates arrive in a lane-switch chain; ride every one and sprint
+    private func stepTurbo(_ dt: TimeInterval, realDt: TimeInterval) {
+        turboRemaining = max(0, turboRemaining - realDt)
+        turboCountdown -= dt
+        if turboCountdown <= 0 {
+            spawnTurboChain()
+            turboCountdown = Tuning.turboChainIntervalSeconds
+        }
+        for i in turboPads.indices {
+            turboPads[i].depth += dt * Tuning.trackScrollPerSecond * forwardScale
+            let pad = turboPads[i]
+            pad.node.isHidden = pad.depth < 0
+            if pad.depth >= 1 {
+                let onPad = laneDistance(railTs[pad.rail], podT)
+                    <= Tuning.laneHitWidth && podAirRemaining <= 0 && bigJump == nil
+                if onPad {
+                    spark(at: wallFrame(at: railTs[pad.rail]).point,
+                          radius: Tuning.sparkRadius)
+                    if pad.isLast, !turboChainBroken {
+                        turboRemaining = Tuning.turboSeconds
+                        scorePopup("TURBO", at: pod.position, color: Palette.railHot)
+                    }
+                } else {
+                    turboChainBroken = true
+                }
+                pad.node.removeFromParent()
+            } else if pad.depth > 0 {
+                placeOnWall(pad.node, t: railTs[pad.rail], depth: pad.depth,
+                            height: Tuning.turboPadSize.height / 2)
+            }
+        }
+        turboPads.removeAll { $0.depth >= 1 }
+    }
+
+    private func spawnTurboChain() {
+        turboChainBroken = false
+        var lane = Int.random(in: 0..<Tuning.railCount)
+        for i in 0..<Tuning.turboChainLength {
+            let node = SKShapeNode(rectOf: Tuning.turboPadSize,
+                                   cornerRadius: Tuning.turboPadSize.height / 2)
+            node.fillColor = Palette.railHot
+            node.strokeColor = Palette.ufoGlint
+            node.lineWidth = Tuning.strokeWidth / 2
+            node.glowWidth = Tuning.railGlowWidth
+            node.blendMode = .add
+            node.zPosition = 0.7
+            node.isHidden = true
+            addChild(node)
+            turboPads.append(TurboPad(node: node, rail: lane,
+                                      isLast: i == Tuning.turboChainLength - 1,
+                                      depth: -Double(i) * Tuning.turboPadDepthGap))
+            // the chain switches lanes each gate
+            let step = Bool.random() ? 1 : -1
+            lane = min(Tuning.railCount - 1, max(0, lane + step))
+        }
     }
 
     private func stepRings(_ dt: TimeInterval) {
@@ -857,7 +950,10 @@ final class GameScene: SKScene {
         for (i, pip) in gunPips.enumerated() {
             pip.alpha = i < gunLevel ? 1 : 0.15
         }
-        p1ScoreLabel.text = String(format: "P1 %06d", score)
+        devastatorLamp.alpha = devastatorBanked ? 1 : 0.15
+        p1ScoreLabel.text = scoreMultiplier > 1
+            ? String(format: "P1 %06d x%d", score, scoreMultiplier)
+            : String(format: "P1 %06d", score)
     }
 
     private func stepPod(_ dt: TimeInterval) {
@@ -1078,6 +1174,9 @@ final class GameScene: SKScene {
                 placeOnWall(piece.node, t: railTs[piece.rail], depth: piece.progress,
                             height: piece.size.height)
                 piece.node.zRotation += piece.tilt
+                if piece.progress > Tuning.junkPingDepth, piece.ping.parent != nil {
+                    piece.ping.removeFromParent()
+                }
             }
         }
         junkPieces.removeAll { $0.progress >= 1 }
@@ -1093,7 +1192,22 @@ final class GameScene: SKScene {
         node.size = junkSize
         addChild(node)
         let tilt = CGFloat.random(in: -Tuning.junkTiltRange...Tuning.junkTiltRange)
-        junkPieces.append(Junk(node: node, rail: rail, size: junkSize,
+        // radar ping: a green pulse at the near end of the junk's lane
+        let frame = wallFrame(at: railTs[rail])
+        let ping = SKShapeNode(circleOfRadius: Tuning.junkPingRadius)
+        ping.position = CGPoint(x: frame.point.x + frame.wall.normal.dx * Tuning.junkPingRadius,
+                                y: frame.point.y + frame.wall.normal.dy * Tuning.junkPingRadius)
+        ping.strokeColor = Palette.shieldGreen
+        ping.fillColor = .clear
+        ping.lineWidth = Tuning.strokeWidth
+        ping.glowWidth = Tuning.tracerGlowWidth
+        ping.zPosition = 1.4
+        ping.run(.repeatForever(.sequence([
+            .group([.scale(to: 1.4, duration: 0.35), .fadeAlpha(to: 0.2, duration: 0.35)]),
+            .group([.scale(to: 0.7, duration: 0.35), .fadeAlpha(to: 1, duration: 0.35)]),
+        ])))
+        addChild(ping)
+        junkPieces.append(Junk(node: node, ping: ping, rail: rail, size: junkSize,
                                tilt: tilt, progress: 0))
         placeOnWall(node, t: railTs[rail], depth: 0, height: junkSize.height)
         node.zRotation += tilt
@@ -1113,12 +1227,14 @@ final class GameScene: SKScene {
             }
             if !cleared { damagePod() }
         }
+        piece.ping.removeFromParent()
         piece.node.run(.sequence([.fadeOut(withDuration: Tuning.junkFadeSeconds),
                                   .removeFromParent()]))
     }
 
     private func damagePod() {
         hull -= 1
+        scoreMultiplier = 1
         stunPod()
         if hull <= 0 {
             hull = Tuning.hullMax
@@ -1256,20 +1372,45 @@ final class GameScene: SKScene {
     }
 
     private func spawnPickup() {
-        let kind: PickupKind = Bool.random() ? .gun : .shield
-        let node = SKSpriteNode(texture: kind == .gun ? Sprites.gunChip
-                                                      : Sprites.shieldChip)
+        // splatter: points most common, tools and armor behind them
+        let kind: PickupKind
+        switch Int.random(in: 0..<5) {
+        case 0, 1: kind = .points
+        case 2: kind = .gun
+        case 3: kind = .shield
+        default: kind = .multiplier
+        }
+        addPickup(kind, rail: Int.random(in: 0..<Tuning.railCount), depth: 0)
+    }
+
+    private func addPickup(_ kind: PickupKind, rail: Int, depth: Double) {
+        let tex: SKTexture
+        switch kind {
+        case .gun: tex = Sprites.gunChip
+        case .shield: tex = Sprites.shieldChip
+        case .points: tex = Sprites.pointsChip
+        case .multiplier: tex = Sprites.multChip
+        }
+        let node = SKSpriteNode(texture: tex)
         node.size = Tuning.pickupSize
         node.zPosition = 1.4
         addChild(node)
-        pickups.append(Pickup(node: node, kind: kind,
-                              rail: Int.random(in: 0..<Tuning.railCount), depth: 0))
+        pickups.append(Pickup(node: node, kind: kind, rail: rail, depth: depth))
     }
 
     private func collect(_ kind: PickupKind) {
         switch kind {
-        case .gun: gunLevel = min(Tuning.gunLevelMax, gunLevel + 1)
-        case .shield: hull = min(Tuning.hullPickupCap, hull + 1)
+        case .gun:
+            gunLevel = min(Tuning.gunLevelMax, gunLevel + 1)
+        case .shield:
+            hull = min(Tuning.hullPickupCap, hull + 1)
+        case .points:
+            let points = Tuning.pointsChipValue * scoreMultiplier
+            score += points
+            scorePopup("+\(points)", at: pod.position, color: Palette.podEngine)
+        case .multiplier:
+            scoreMultiplier = min(Tuning.chainMax, scoreMultiplier + 1)
+            scorePopup("x\(scoreMultiplier)", at: pod.position, color: Palette.enemyMarker)
         }
     }
 
@@ -1294,6 +1435,18 @@ final class GameScene: SKScene {
         skimmerHasBraked = false
         skimmerHp = Tuning.skimmerHitsToKill
         skimmer.removeAllChildren()
+        // remaining hits, readable over the dome
+        skimmerHpPips = []
+        for i in 0..<Tuning.skimmerHitsToKill {
+            let pip = SKSpriteNode(color: Palette.enemyMarker, size: Tuning.hpPipSize)
+            let span = CGFloat(Tuning.skimmerHitsToKill - 1)
+                * (Tuning.hpPipSize.width + Tuning.hpPipGap)
+            pip.position = CGPoint(
+                x: -span / 2 + CGFloat(i) * (Tuning.hpPipSize.width + Tuning.hpPipGap),
+                y: Tuning.skimmerSize.height / 2 + Tuning.hpPipRise)
+            skimmer.addChild(pip)
+            skimmerHpPips.append(pip)
+        }
         shootCountdown = Tuning.skimmerShootIntervalSeconds
         skimmerAlive = true
         placeOnWall(skimmer, t: skimmerT, depth: Tuning.skimmerSpawnDepth,
@@ -1307,13 +1460,22 @@ final class GameScene: SKScene {
         respawnCountdown = Tuning.respawnDelaySeconds
     }
 
-    // three hits by default; every hit knocks something off
+    // three hits by default; every hit flashes the hull, knocks something
+    // off, and sheds a multiplier chip worth chasing
     private func hitSkimmer(_ damage: Int) {
         skimmerHp -= damage
+        for (i, pip) in skimmerHpPips.enumerated() {
+            pip.alpha = i < skimmerHp ? 1 : 0.15
+        }
         if skimmerHp <= 0 {
             killSkimmer()
             return
         }
+        skimmer.run(.sequence([
+            .colorize(with: Palette.flash, colorBlendFactor: 0.9, duration: 0.02),
+            .colorize(withColorBlendFactor: 0, duration: Tuning.hitFlashSeconds),
+        ]))
+        addPickup(.multiplier, rail: skimmerLane, depth: skimmerDepth)
         skimmerElapsed = max(0, skimmerElapsed - Tuning.skimmerHitKnockbackSeconds)
         spark(at: skimmer.position, radius: Tuning.sparkRadius)
         // a piece comes off, and the wound stays on the hull
@@ -1343,10 +1505,16 @@ final class GameScene: SKScene {
         kills += 1
         let remaining = max(0, Tuning.passClockSeconds - skimmerElapsed)
         let brink = Tuning.brinkTiers.first { remaining <= $0.secondsLeft }?.multiplier ?? 1
-        let points = Tuning.baseKillScore * brink
+        let points = Tuning.baseKillScore * brink * scoreMultiplier
         score += points
         scorePopup("+\(points)", at: skimmer.position,
                    color: brink > 1 ? Palette.enemyMarker : Palette.reticle)
+        // a brink kill banks the DEVASTATOR; the wreck sheds a multiplier
+        if brink > 1, !devastatorBanked {
+            devastatorBanked = true
+            scorePopup("DEVASTATOR READY", at: pod.position, color: Palette.hazard)
+        }
+        addPickup(.multiplier, rail: skimmerLane, depth: skimmerDepth)
         spark(at: skimmer.position, radius: Tuning.laneHitWidth / 2)
         for i in 0..<Tuning.fragmentCount {
             let frag = SKSpriteNode(color: Palette.enemyEngine, size: Tuning.fragmentSize)
@@ -1425,9 +1593,32 @@ final class GameScene: SKScene {
         where laneDistance(railTs[piece.rail], podT) <= Tuning.laneHitWidth {
             spark(at: piece.node.position, radius: Tuning.sparkRadius)
             piece.node.removeFromParent()
+            piece.ping.removeFromParent()
         }
         junkPieces.removeAll { laneDistance(railTs[$0.rail], podT) <= Tuning.laneHitWidth }
         if skimmerInLine { hitSkimmer(gunLevel) }
+    }
+
+    // the DEVASTATOR: everything in the tube dies in one white breath
+    private func fireDevastator() {
+        guard devastatorBanked, stunRemaining <= 0 else { return }
+        devastatorBanked = false
+        let flash = SKSpriteNode(color: Palette.flash, size: size)
+        flash.position = CGPoint(x: centerX, y: size.height / 2)
+        flash.alpha = Tuning.devastatorFlashAlpha
+        flash.zPosition = 5
+        addChild(flash)
+        flash.run(.sequence([.fadeOut(withDuration: Tuning.devastatorFlashSeconds),
+                             .removeFromParent()]))
+        for piece in junkPieces {
+            spark(at: piece.node.position, radius: Tuning.sparkRadius)
+            piece.node.removeFromParent()
+            piece.ping.removeFromParent()
+        }
+        junkPieces.removeAll()
+        for bolt in bolts { bolt.node.removeFromParent() }
+        bolts.removeAll()
+        if skimmerAlive { killSkimmer() }
     }
 
     private func scorePopup(_ text: String, at point: CGPoint, color: SKColor) {
@@ -1455,6 +1646,9 @@ final class GameScene: SKScene {
         if event.keyCode == Key.space {
             if !event.isARepeat { fire() }
             return
+        }
+        if event.keyCode == Key.down, !event.isARepeat {
+            fireDevastator()
         }
         if event.keyCode == Key.up, !event.isARepeat, stunRemaining <= 0 {
             // one tap hops; a second tap in the window is the big jump

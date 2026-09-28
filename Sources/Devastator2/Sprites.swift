@@ -102,6 +102,41 @@ enum Sprites {
         "Y": Palette.hazard,
     ])
 
+    static let pointsChip = texture([
+        ".KKKKKKKKKK.",
+        "KJJJJJJJJJJK",
+        "KJJJJCCJJJJK",
+        "KJJJCCCCJJJK",
+        "KJJCCCCCCJJK",
+        "KJJCCCCCCJJK",
+        "KJJJCCCCJJJK",
+        "KJJJJCCJJJJK",
+        "KJJJJJJJJJJK",
+        ".KKKKKKKKKK.",
+    ], [
+        "K": Palette.junkLight,
+        "J": Palette.junkDark,
+        "C": Palette.podEngine,
+    ])
+
+    // the multiplier: knocked off the saucer, worth chasing
+    static let multChip = texture([
+        ".KKKKKKKKKK.",
+        "KJJJJJJJJJJK",
+        "KJMMJJJJMMJK",
+        "KJJMMJJMMJJK",
+        "KJJJMMMMJJJK",
+        "KJJJJMMJJJJK",
+        "KJJJMMMMJJJK",
+        "KJJMMJJMMJJK",
+        "KJMMJJJJMMJK",
+        ".KKKKKKKKKK.",
+    ], [
+        "K": Palette.junkLight,
+        "J": Palette.junkDark,
+        "M": Palette.enemyMarker,
+    ])
+
     static let shieldChip = texture([
         ".KKKKKKKKKK.",
         "KJJJJJJJJJJK",

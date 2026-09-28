@@ -140,12 +140,29 @@ grey-box outcome — "aiming should be side to side only"):
 - Return fire: the UFO shoots a rail-gun bolt straight down its own
   lane (skimmerShootIntervalSeconds + jitter, boltDepthPerSecond).
   Sharing its lane is the duel: both can hit. Any air clears a bolt.
-- Level-ups ride the lanes like junk and are caught on the ground:
-  gun chips raise damage per shot to Tuning.gunLevelMax; shield chips
-  raise hull to Tuning.hullPickupCap. Hull empty resets hull AND gun.
-- Scoring: kills pay baseKillScore times the brink multiplier from
-  Tuning.brinkTiers on the launch clock; popup at the kill. P1 score
-  sits bottom-left, P2 placeholder bottom-right (2P pending).
+- Pickups splatter the lanes (Tuning.pickupIntervalSeconds) and are
+  caught on the ground: point chips (pointsChipValue), gun chips (to
+  gunLevelMax damage), shield chips (to hullPickupCap), and multiplier
+  chips. Every HIT on the saucer sheds a multiplier chip at its depth
+  ("especially off the ship"); catching one raises the score
+  multiplier to Tuning.chainMax. Damage resets the multiplier; hull
+  empty resets hull AND gun.
+- Scoring: kills pay baseKillScore x brink (Tuning.brinkTiers) x the
+  multiplier; point chips pay value x multiplier; popups at the
+  source. P1 bottom-left with the live multiplier, P2 placeholder
+  bottom-right (2P pending).
+- The DEVASTATOR: a brink kill banks one charge (lamp on the glass by
+  the launch clock); DOWN fires it — full-screen flash, every junk
+  piece and bolt dies, the saucer dies with full scoring.
+- Turbo gates (Tuning.turbo...): chains of glowing pads arrive every
+  turboChainIntervalSeconds on a lane-switch pattern. Ride every pad
+  in the chain and turbo fires: the world at turboScrollScale and the
+  chase clock REWINDING (turboEscapeScale) — you catch the quarry.
+  Missing any pad breaks the chain.
+- The UFO is bigger and spawns closer (skimmerSpawnDepth). Hits flash
+  the hull white and deplete red hp pips over the dome. Incoming junk
+  announces itself with a green radar ping pulsing at the near end of
+  its lane until the piece is halfway in (junkPingDepth).
 - Junk sits on lanes only, closes at your forward speed (doubled
   railed), stuns on contact (controls cut, hard gravity to the floor
   rail, fire disabled) and derails; jump it, shoot it, or wear it.

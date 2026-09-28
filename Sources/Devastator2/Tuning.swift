@@ -28,7 +28,7 @@ enum Tuning {
     static let gravityGraceSeconds = 0.45 // idle time before gravity takes over
     static let stunSeconds = 0.6
     static let stunGravityMultiplier = 3.0
-    static let laneHitWidth: CGFloat = 30 // a shot owns this much of the ring
+    static let laneHitWidth: CGFloat = 36 // a shot owns this much of the ring
     static let trackScrollPerSecond = 0.3 // the pod's forward speed, tube lengths per second
     static let farPointScale: CGFloat = 0.12 // size of the world at the far mouth
     static let depthExponent = 1.6 // approach curve; higher looms later
@@ -54,7 +54,7 @@ enum Tuning {
     static let bigJumpSloMo = 0.35 // world rate while airborne on a big jump
 
     // the quarry: rides the rails, runs for the far mouth, and shoots back
-    static let skimmerSpawnDepth = 0.85 // how close ahead it starts
+    static let skimmerSpawnDepth = 0.92 // how close ahead it starts: big
     static let skimmerHopIntervalSeconds = 1.6
     static let skimmerHopJitterSeconds = 0.8
     static let skimmerHopSeconds = 0.25 // slide to the next rail
@@ -62,16 +62,36 @@ enum Tuning {
     static let mercyEscapeFraction = 0.7 // escape progress where mercy can trigger
     static let skimmerHitsToKill = 3
     static let skimmerHitKnockbackSeconds = 0.5 // a hit staggers the getaway
+    static let hitFlashSeconds = 0.15 // the whole saucer blinks white on a hit
+    static let hpPipSize = CGSize(width: 5, height: 5) // remaining hits, over the dome
+    static let hpPipGap: CGFloat = 4
+    static let hpPipRise: CGFloat = 7
     static let skimmerShootIntervalSeconds = 2.8
     static let skimmerShootJitterSeconds = 1.4
     static let boltDepthPerSecond = 1.3 // rail-gun return fire closing speed
 
-    // level-ups ride the lanes like junk; catch them on the ground
-    static let pickupFirstSeconds = 5.0
-    static let pickupIntervalSeconds = 12.0
+    // level-ups, shields, and point chips splatter the lanes; catch them
+    // on the ground
+    static let pickupFirstSeconds = 4.0
+    static let pickupIntervalSeconds = 6.0
     static let pickupSize = CGSize(width: 12, height: 12)
     static let gunLevelMax = 3 // damage per shot
     static let hullPickupCap = 5
+    static let pointsChipValue = 50
+
+    // the DEVASTATOR: banked by a brink kill, fired with down
+    static let devastatorFlashAlpha: CGFloat = 0.85
+    static let devastatorFlashSeconds = 0.6
+
+    // turbo gates follow a lane-switch pattern; ride the whole chain and
+    // you overtake the quarry
+    static let turboChainLength = 4
+    static let turboChainIntervalSeconds = 14.0
+    static let turboPadDepthGap = 0.22 // arrival spacing inside a chain
+    static let turboPadSize = CGSize(width: 26, height: 8)
+    static let turboSeconds = 3.5
+    static let turboScrollScale = 3.0 // the world at full sprint
+    static let turboEscapeScale = -0.4 // the chase clock rewinds: you gain
 
     // the bore: a hexagonal transit tube. The roofline is the surface and
     // carries no rail; five rails sit at the five wall centers.
@@ -84,11 +104,13 @@ enum Tuning {
 
     // actors, scene points
     static let podSize = CGSize(width: 28, height: 16)
-    static let skimmerSize = CGSize(width: 44, height: 20)
-    static let junkScaleMin: CGFloat = 0.8 // debris size spread around its art size
-    static let junkScaleMax: CGFloat = 1.6
+    static let skimmerSize = CGSize(width: 56, height: 26)
+    static let junkScaleMin: CGFloat = 1.0 // debris size spread around its art size
+    static let junkScaleMax: CGFloat = 2.0
     static let junkSpawnSeconds = 2.4
     static let respawnDelaySeconds = 0.6
+    static let junkPingRadius: CGFloat = 7 // green radar pulse marking the lane
+    static let junkPingDepth = 0.5 // the ping lives while the junk is far
 
     // the hull: junk costs one pip; empty resets with a grace flash
     static let hullMax = 3
