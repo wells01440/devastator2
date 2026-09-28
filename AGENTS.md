@@ -14,7 +14,9 @@ controls, off-rail is the wonky off-script state; junk is shootable.
 Round 4 made it a lane game (owner: "almost a tempest feel"): three
 rails, racers ride them too. Round 5 moved the side rails to the wall
 centers and put all junk on lanes. Round 6 fixed the world model: one
-perspective for everything in the slot.
+perspective for everything in the slot. Round 7 turned it into a chase
+(owner: "way more fun"): the quarry runs away, and the hop pair and
+lane blast landed.
 
 ## Layout
 
@@ -70,12 +72,22 @@ Current gameplay:
   line. Railed, the controls are normal: direct aim, no gravity, the
   pod holds the rail. The pass clock drains at Tuning.railClockScale
   and stripes scroll at Tuning.railScrollScale (the go-fast).
-- Racers follow the same mechanics (owner's call). The Skimmer spawns
-  on a rail, rides it, and hops to an adjacent lane every
-  Tuning.skimmerHopIntervalSeconds plus jitter. A railed pod bodily
-  blocks its own lane: a Skimmer arriving there cannot pass; it clangs,
-  gives back Tuning.blockKnockbackSeconds of pass clock, and is forced
-  to hop. Passing needs a lane you are not holding.
+- The chase: the Skimmer spawns close ahead (Tuning.skimmerSpawnDepth),
+  rides the rails, hops lanes, and RUNS AWAY, shrinking toward the
+  horizon. The pass clock is the chase clock; if it drains, he made the
+  distance and it is kablammo (sky flash, a pass). Railing keeps pace
+  (Tuning.railClockScale); braking loses ground
+  (Tuning.brakeEscapeScale). Mercy: a fleeing racer eases off once
+  (Tuning.skimmerBrakeSeconds) when passes exceed kills.
+- The hop pair. Double-tap up: the pod jumps (Tuning.podHopSeconds/
+  Height) and sails over arriving junk. Double-tap down off a rail:
+  slam lock into the nearest rail with a hard brake
+  (Tuning.brakeSeconds, BRAKE in the debug line); double-tap down on a
+  rail: clunk off.
+- The lane blast: railed, with the aim on your own lane line
+  (Tuning.laneShotTolerance), a shot runs the whole lane and destroys
+  every junk piece on it, plus the Skimmer if he is riding that rail
+  and not mid-hop.
 - Off-rail is off script: slower scroll, and the controls go wonky
   because yaw, pitch, and aim are one input; the pod's motion smears
   the crosshair by Tuning.wonkAimDrag. Gravity pulls the aim down to
@@ -89,12 +101,14 @@ Current gameplay:
   floor space is junk-free, so hiding between lanes is safe and slow.
 
 DESIGN.md deltas pending the owner's verdict: fixed obstacles as cover
-became streaming shootable junk; the three-lane monorail system is new
-and is home base for both sides, replacing the weave with lane hops and
-adding lane blocking; the view is 2D rear-forward, so pseudo-3D row
-scaling may be cut. Gravity recenter reads as a natural fit for an
-analog stick (owner); pads arrive later via GameController. Owner likes
-the double-tap-down dismount and the Tempest read.
+became stationary shootable track junk; the three-lane monorail system
+is home base for both sides; enemies flee rather than approach, so
+"passing" is now escaping down-slot; the view is 2D rear-forward with
+scale-by-depth. Gravity recenter reads as a natural fit for an analog
+stick (owner); pads arrive later via GameController. Owner likes the
+double-tap-down dismount and the Tempest read. Owner ideas parked for
+later: thrown junk (at you, or up in the air), and the Groove reshaping
+over time (notch shape changing, rail positions moving).
 
 Feel candidates for the pass: the two dismounts, the hop cadence,
 blockKnockbackSeconds, wonkAimDrag, aimFollowLag,

@@ -34,12 +34,16 @@ final class GameScene: SKScene {
     private var railedIndex: Int?
     private var dismountAccum: TimeInterval = 0
     private var lastDownTap: TimeInterval = 0
+    private var lastUpTap: TimeInterval = 0
+    private var podAirRemaining: TimeInterval = 0
+    private var brakeRemaining: TimeInterval = 0
     private var stunRemaining: TimeInterval = 0
     private var idleSeconds: TimeInterval = 0
     private var stripePhase = 0.0
     private var junkPieces: [Junk] = []
     private var junkSpawnCountdown: TimeInterval = 0
     private var skimmerAlive = false
+    private var skimmerHasBraked = false
     private var skimmerLane = 0
     private var skimmerX: CGFloat = 0
     private var hopTarget: Int?
@@ -60,6 +64,15 @@ final class GameScene: SKScene {
     private var flatMaxX: CGFloat { centerX + Tuning.flatHalfWidth }
     private var aimRest: CGPoint {
         CGPoint(x: centerX, y: Tuning.trenchBottomY + Tuning.aimRestHeight)
+    }
+
+    // your forward speed through the slot, and how fast the quarry gains on
+    // escape: braking beats railing beats nothing
+    private var forwardScale: Double {
+        brakeRemaining > 0 ? Tuning.brakeScrollScale : isRailed ? Tuning.railScrollScale : 1
+    }
+    private var escapeScale: Double {
+        brakeRemaining > 0 ? Tuning.brakeEscapeScale : isRailed ? Tuning.railClockScale : 1
     }
 
     private func railLabel(_ i: Int) -> String {
@@ -241,6 +254,8 @@ final class GameScene: SKScene {
         var state = ""
         if stunRemaining > 0 {
             state = "   STUN"
+        } else if brakeRemaining > 0 {
+            state = "   BRAKE"
         } else if let i = railedIndex {
             state = "   RAIL \(railLabel(i))"
         }
@@ -285,6 +300,8 @@ final class GameScene: SKScene {
     }
 
     private func stepPod(_ dt: TimeInterval) {
+        brakeRemaining = max(0, brakeRemaining - dt)
+        podAirRemaining = max(0, podAirRemaining - dt)
         let halfW = Tuning.podSize.width / 2
         if let i = railedIndex {
             podX = railXs[i]
@@ -314,6 +331,10 @@ final class GameScene: SKScene {
             }
         }
         pod.position = CGPoint(x: podX, y: trackY(podX) + Tuning.podSize.height / 2)
+        if podAirRemaining > 0 {
+            let t = 1 - podAirRemaining / Tuning.podHopSeconds
+            pod.position.y += Tuning.podHopHeight * CGFloat(sin(Double.pi * t))
+        }
         pod.color = grey(isRailed ? Tuning.podRailGrey : Tuning.podGrey)
         for (i, glow) in railGlows.enumerated() {
             glow.alpha = i == railedIndex ? 1 : Tuning.railIdleAlpha
@@ -334,6 +355,23 @@ final class GameScene: SKScene {
         dismountAccum = 0
         jolt()
         spark(at: pod.position, radius: Tuning.sparkRadius)
+    }
+
+    private func slamLock() {
+        guard let i = railXs.indices.min(by: { abs(podX - railXs[$0]) < abs(podX - railXs[$1]) })
+        else { return }
+        railedIndex = i
+        dismountAccum = 0
+        podX = railXs[i]
+        brakeRemaining = Tuning.brakeSeconds
+        jolt()
+        spark(at: CGPoint(x: podX, y: trackY(podX) + Tuning.podSize.height),
+              radius: Tuning.sparkRadius)
+    }
+
+    private func podHop() {
+        guard podAirRemaining <= 0 else { return }
+        podAirRemaining = Tuning.podHopSeconds
     }
 
     private func jolt() {
@@ -357,8 +395,7 @@ final class GameScene: SKScene {
     }
 
     private func stepStripes(_ dt: TimeInterval) {
-        let scale = isRailed ? Tuning.railScrollScale : 1
-        stripePhase = (stripePhase + dt * Tuning.trackScrollPerSecond * scale)
+        stripePhase = (stripePhase + dt * Tuning.trackScrollPerSecond * forwardScale)
             .truncatingRemainder(dividingBy: 1)
         for (i, stripe) in stripes.enumerated() {
             let d = (stripePhase + Double(i) / Double(Tuning.stripeCount))
@@ -387,7 +424,7 @@ final class GameScene: SKScene {
         }
         // junk is stationary in the slot; it closes at the pod's forward
         // speed, so going fast on a rail makes it loom twice as fast
-        let closeRate = Tuning.trackScrollPerSecond * (isRailed ? Tuning.railScrollScale : 1)
+        let closeRate = Tuning.trackScrollPerSecond * forwardScale
         for i in junkPieces.indices {
             junkPieces[i].progress += dt * closeRate
             let piece = junkPieces[i]
@@ -412,7 +449,8 @@ final class GameScene: SKScene {
 
     private func resolveJunkArrival(_ piece: Junk) {
         let reach = (Tuning.junkSize.width + Tuning.podSize.width) / 2
-        if abs(piece.laneX - podX) < reach { stunPod() }
+        // an airborne pod sails over arriving junk
+        if abs(piece.laneX - podX) < reach, podAirRemaining <= 0 { stunPod() }
         piece.node.run(.sequence([.fadeOut(withDuration: Tuning.junkFadeSeconds),
                                   .removeFromParent()]))
     }
@@ -433,16 +471,18 @@ final class GameScene: SKScene {
             if respawnCountdown <= 0 { spawnSkimmer() }
             return
         }
-        skimmerElapsed += dt * (isRailed ? Tuning.railClockScale : 1)
-        let progress = skimmerElapsed / Tuning.passClockSeconds
-        if progress >= 1 {
-            // a railed pod bodily blocks its own lane
-            if railedIndex == skimmerLane {
-                blockedPass()
-            } else {
-                skimmerPassed()
-            }
+        // the quarry runs AWAY: the clock is the chase, the horizon is escape
+        skimmerElapsed += dt * escapeScale
+        if skimmerElapsed / Tuning.passClockSeconds >= 1 {
+            skimmerEscaped()
             return
+        }
+        // mercy: a fleeing racer eases off once to keep a losing player in it
+        if !skimmerHasBraked, passes > kills,
+           skimmerElapsed / Tuning.passClockSeconds >= Tuning.mercyEscapeFraction {
+            skimmerHasBraked = true
+            skimmerElapsed = max(0, skimmerElapsed - Tuning.skimmerBrakeSeconds)
+            spark(at: skimmer.position, radius: Tuning.sparkRadius)
         }
         if let target = hopTarget {
             hopT += dt
@@ -458,7 +498,9 @@ final class GameScene: SKScene {
             hopCountdown -= dt
             if hopCountdown <= 0 { startHop() }
         }
-        let f = place(skimmer, nearX: skimmerX, depth: progress,
+        let progress = skimmerElapsed / Tuning.passClockSeconds
+        let depth = Tuning.skimmerSpawnDepth * (1 - progress)
+        let f = place(skimmer, nearX: skimmerX, depth: depth,
                       height: Tuning.skimmerSize.height)
         passRing.position = skimmer.position
         let ringScale = Tuning.passRingMinScale
@@ -478,13 +520,6 @@ final class GameScene: SKScene {
         hopT = 0
     }
 
-    private func blockedPass() {
-        skimmerElapsed = max(0, skimmerElapsed - Tuning.blockKnockbackSeconds)
-        spark(at: skimmer.position, radius: Tuning.sparkRadius)
-        jolt()
-        if hopTarget == nil { startHop() }
-    }
-
     // MARK: skimmer lifecycle
 
     private func spawnSkimmer() {
@@ -493,8 +528,9 @@ final class GameScene: SKScene {
         hopTarget = nil
         hopCountdown = nextHopDelay()
         skimmerElapsed = 0
+        skimmerHasBraked = false
         skimmerAlive = true
-        let f = place(skimmer, nearX: skimmerX, depth: 0,
+        let f = place(skimmer, nearX: skimmerX, depth: Tuning.skimmerSpawnDepth,
                       height: Tuning.skimmerSize.height)
         passRing.position = skimmer.position
         passRing.setScale(f)
@@ -515,7 +551,8 @@ final class GameScene: SKScene {
         despawnSkimmer()
     }
 
-    private func skimmerPassed() {
+    // kablammo: the quarry made the distance
+    private func skimmerEscaped() {
         passes += 1
         skyFlash.removeAllActions()
         skyFlash.run(.sequence([
@@ -529,17 +566,13 @@ final class GameScene: SKScene {
 
     private func fire() {
         guard stunRemaining <= 0 else { return }
-        let tracer = SKShapeNode()
-        let p = CGMutablePath()
-        p.move(to: pod.position)
-        p.addLine(to: crosshair.position)
-        tracer.path = p
-        tracer.strokeColor = .white
-        tracer.lineWidth = Tuning.strokeWidth
-        addChild(tracer)
-        tracer.run(.sequence([.fadeOut(withDuration: Tuning.tracerFadeSeconds),
-                              .removeFromParent()]))
-
+        // railed with the aim up your own notch: the bolt runs the lane and
+        // blasts everything in that line
+        if let i = railedIndex, aimIsUpLane(railXs[i]) {
+            fireUpLane(railXs[i])
+            return
+        }
+        drawTracer(to: crosshair.position)
         // one target per shot: the skimmer first, then junk in the way
         if skimmerAlive, aimDistance(to: skimmer.position) <= Tuning.hitRadius {
             killSkimmer()
@@ -552,6 +585,44 @@ final class GameScene: SKScene {
             junkPieces[i].node.removeFromParent()
             junkPieces.remove(at: i)
         }
+    }
+
+    // distance from the crosshair to the lane's line, near bump to horizon
+    private func aimIsUpLane(_ railX: CGFloat) -> Bool {
+        let a = CGPoint(x: railX, y: trackY(railX))
+        let b = project(railX, 0).point
+        let ab = CGPoint(x: b.x - a.x, y: b.y - a.y)
+        let ap = CGPoint(x: crosshair.position.x - a.x, y: crosshair.position.y - a.y)
+        let len2 = ab.x * ab.x + ab.y * ab.y
+        let t = ((ap.x * ab.x + ap.y * ab.y) / len2).clamped(0, 1)
+        let closest = CGPoint(x: a.x + ab.x * t, y: a.y + ab.y * t)
+        return hypot(crosshair.position.x - closest.x,
+                     crosshair.position.y - closest.y) <= Tuning.laneShotTolerance
+    }
+
+    private func fireUpLane(_ railX: CGFloat) {
+        drawTracer(to: project(railX, 0).point)
+        for piece in junkPieces where piece.laneX == railX {
+            spark(at: piece.node.position, radius: Tuning.sparkRadius)
+            piece.node.removeFromParent()
+        }
+        junkPieces.removeAll { $0.laneX == railX }
+        if skimmerAlive, hopTarget == nil, railXs[skimmerLane] == railX {
+            killSkimmer()
+        }
+    }
+
+    private func drawTracer(to point: CGPoint) {
+        let tracer = SKShapeNode()
+        let p = CGMutablePath()
+        p.move(to: pod.position)
+        p.addLine(to: point)
+        tracer.path = p
+        tracer.strokeColor = .white
+        tracer.lineWidth = Tuning.strokeWidth
+        addChild(tracer)
+        tracer.run(.sequence([.fadeOut(withDuration: Tuning.tracerFadeSeconds),
+                              .removeFromParent()]))
     }
 
     private func aimDistance(to point: CGPoint) -> CGFloat {
@@ -569,11 +640,19 @@ final class GameScene: SKScene {
             if !event.isARepeat { fire() }
             return
         }
-        if event.keyCode == Key.down, isRailed, !event.isARepeat, stunRemaining <= 0 {
+        if event.keyCode == Key.down, !event.isARepeat, stunRemaining <= 0 {
             if event.timestamp - lastDownTap <= Tuning.railDoubleTapSeconds {
-                clunkOff()
+                // double-down: off a rail = clunk off; on the floor = slam
+                // lock into the nearest rail, at the cost of a hard brake
+                if isRailed { clunkOff() } else { slamLock() }
             }
             lastDownTap = event.timestamp
+        }
+        if event.keyCode == Key.up, !event.isARepeat, stunRemaining <= 0 {
+            if event.timestamp - lastUpTap <= Tuning.railDoubleTapSeconds {
+                podHop()
+            }
+            lastUpTap = event.timestamp
         }
         held.insert(event.keyCode)
     }

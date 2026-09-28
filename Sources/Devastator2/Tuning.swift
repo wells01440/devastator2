@@ -29,16 +29,26 @@ enum Tuning {
     static let stunGravityMultiplier = 3.0
     static let crosshairSpeed: CGFloat = 320 // scene points per second
     static let hitRadius: CGFloat = 18
+    static let laneShotTolerance: CGFloat = 12 // aim this close to your lane line = line blast
     static let trackScrollPerSecond = 0.3 // the pod's forward speed, track lengths per second
     static let farPointScale: CGFloat = 0.12 // size and spread of the world at the horizon
     static let depthExponent = 1.6 // approach curve; higher looms later
 
-    // racers ride the same rails: lane hops instead of weave, and a railed
-    // pod bodily blocks its own lane
+    // racers ride the same rails and run AWAY: the pass clock is the chase,
+    // and the far distance is the kablammo
+    static let skimmerSpawnDepth = 0.85 // how close ahead the quarry starts
     static let skimmerHopIntervalSeconds = 1.6
     static let skimmerHopJitterSeconds = 0.8
     static let skimmerHopSeconds = 0.25 // lateral slide to the next lane
-    static let blockKnockbackSeconds = 2.5 // pass clock returned by a lane block
+    static let skimmerBrakeSeconds = 2.5 // chase clock handed back by a mercy brake
+    static let mercyEscapeFraction = 0.7 // escape progress where mercy can trigger
+
+    // the hop pair: double-up jumps junk, double-down locks in hard
+    static let podHopSeconds = 0.45
+    static let podHopHeight: CGFloat = 26
+    static let brakeSeconds = 0.8 // the cost of a slam lock
+    static let brakeScrollScale = 0.5 // forward speed while braking
+    static let brakeEscapeScale = 1.5 // the quarry gains while you brake
 
     // the monorails: home base, three lanes. Notched in, controls are normal
     // and you go fast; off the rail you are slower and the controls go wonky.
