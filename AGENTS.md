@@ -7,12 +7,14 @@ raise conflicts with the owner instead.
 
 ## State
 
-Grey-box round 4, playable. Round 1 shipped the six milestone steps.
+Grey-box round 6, playable. Round 1 shipped the six milestone steps.
 Round 2 added motion, streaming junk, the flat floor, and the monorail.
 Round 3 inverted the polarity: the rail is home base with normal
 controls, off-rail is the wonky off-script state; junk is shootable.
 Round 4 made it a lane game (owner: "almost a tempest feel"): three
-rails, and racers ride the same rails.
+rails, racers ride them too. Round 5 moved the side rails to the wall
+centers and put all junk on lanes. Round 6 fixed the world model: one
+perspective for everything in the slot.
 
 ## Layout
 
@@ -45,11 +47,21 @@ crosshair on the Skimmer. The clock expiring counts a pass and flashes
 the sky band. Q quits. The debug line bottom-left shows kills, passes,
 the pass clock, and RAIL or STUN state.
 
-Round 3 gameplay, per the owner's second feel pass:
+Current gameplay:
 
-- The view is the 2D rear-forward cross-section (owner's call, "not the
-  3d rendering, just the two-d"). The rail is a bump on the floor at
-  center (Tuning.railBumpHalfWidth/Height), not a depth line.
+- The world model (owner's spec): you are slotted into a trench on the
+  moon with three hot rails; the bad guys are in the same slot, on the
+  same rails, and they do not fly; junk is stationary wreckage sitting
+  on the tracks. One perspective serves everything: GameScene.project
+  maps a lane position and a depth to a screen point converging on the
+  horizon (trench center at rim height) and a scale — far is small,
+  near is big (Tuning.farPointScale, Tuning.depthExponent). The view
+  stays 2D rear-forward ("not the 3d rendering, just the two-d").
+- Stationary junk closes at the pod's forward speed
+  (Tuning.trackScrollPerSecond), doubled while railed: going fast
+  makes the wreckage loom twice as fast. Shoot it out of the way or
+  take the hit. Thrown junk (at you, or up in the air) is designed but
+  deferred; today the only junk is on the tracks.
 - Three rails, Tempest positions (Tuning.railOffsetsX): the center of
   the left wall, the floor, the center of the right wall. Each is a
   bump riding the profile, with a faint lane line running from the far
@@ -72,11 +84,9 @@ Round 3 gameplay, per the owner's second feel pass:
 - Two ways off the rail, both under test: shove the aim hard to a
   screen edge and hold (port/starboard clunk toward that side), or
   double-tap down (clunk off in place).
-- Junk follows the rules too: every piece rides one of the three
-  lanes. It is shootable out of the way; a piece arriving on the pod
-  stuns (controls cut, hard gravity, fire disabled) and derails.
-  Off-rail floor space is junk-free, so hiding between lanes is safe
-  and slow.
+- Junk sits only on the three lanes; a piece arriving on the pod stuns
+  (controls cut, hard gravity, fire disabled) and derails. Off-rail
+  floor space is junk-free, so hiding between lanes is safe and slow.
 
 DESIGN.md deltas pending the owner's verdict: fixed obstacles as cover
 became streaming shootable junk; the three-lane monorail system is new

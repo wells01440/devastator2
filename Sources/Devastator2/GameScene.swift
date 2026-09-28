@@ -87,11 +87,26 @@ final class GameScene: SKScene {
         return y
     }
 
-    // depth 0 is the far rim, depth 1 is the near track surface at x
-    private func depthY(_ x: CGFloat, _ progress: Double, height: CGFloat) -> CGFloat {
-        let farY = Tuning.trenchRimY - height
-        let nearY = trackY(x) + height / 2
-        return farY + (nearY - farY) * CGFloat(progress)
+    // one perspective for everything in the slot: depth 0 is the horizon
+    // (trench center at rim height), depth 1 is the player's cross-section.
+    // A grounded thing at near-anchor x projects toward the vanishing point
+    // and scales with depth: far is small, near is big, nothing flies.
+    private func project(_ nearX: CGFloat, _ depth: Double) -> (point: CGPoint, scale: CGFloat) {
+        let f = Tuning.farPointScale
+            + (1 - Tuning.farPointScale) * CGFloat(pow(depth, Tuning.depthExponent))
+        let vp = CGPoint(x: centerX, y: Tuning.trenchRimY)
+        let near = CGPoint(x: nearX, y: trackY(nearX))
+        let point = CGPoint(x: vp.x + (near.x - vp.x) * f,
+                            y: vp.y + (near.y - vp.y) * f)
+        return (point, f)
+    }
+
+    // screen position for a grounded sprite of the given full height
+    private func place(_ node: SKNode, nearX: CGFloat, depth: Double, height: CGFloat) -> CGFloat {
+        let (p, f) = project(nearX, depth)
+        node.position = CGPoint(x: p.x, y: p.y + height / 2 * f)
+        node.setScale(f)
+        return f
     }
 
     private func grey(_ white: CGFloat) -> SKColor { SKColor(white: white, alpha: 1) }
@@ -134,11 +149,11 @@ final class GameScene: SKScene {
         rock.lineWidth = Tuning.strokeWidth
         addChild(rock)
 
-        // lane lines: the rails run from the far rim down into their bumps,
+        // lane lines: the rails run from the horizon out into their bumps,
         // so riding one is visible
         for railX in railXs {
             let lane = CGMutablePath()
-            lane.move(to: CGPoint(x: railX, y: Tuning.trenchRimY))
+            lane.move(to: project(railX, 0).point)
             lane.addLine(to: CGPoint(x: railX, y: trackY(railX)))
             let laneNode = SKShapeNode(path: lane)
             laneNode.strokeColor = grey(Tuning.edgeGrey)
@@ -351,12 +366,12 @@ final class GameScene: SKScene {
             let path = CGMutablePath()
             var first = true
             for x in stride(from: leftWallX, through: rightWallX, by: Tuning.stripeSampleStep) {
-                let y = Tuning.trenchRimY + (trackY(x) - Tuning.trenchRimY) * CGFloat(d)
+                let p = project(x, d).point
                 if first {
-                    path.move(to: CGPoint(x: x, y: y))
+                    path.move(to: p)
                     first = false
                 } else {
-                    path.addLine(to: CGPoint(x: x, y: y))
+                    path.addLine(to: p)
                 }
             }
             stripe.path = path
@@ -370,25 +385,27 @@ final class GameScene: SKScene {
             spawnJunk()
             junkSpawnCountdown = Tuning.junkSpawnSeconds
         }
+        // junk is stationary in the slot; it closes at the pod's forward
+        // speed, so going fast on a rail makes it loom twice as fast
+        let closeRate = Tuning.trackScrollPerSecond * (isRailed ? Tuning.railScrollScale : 1)
         for i in junkPieces.indices {
-            junkPieces[i].progress += dt / Tuning.junkTravelSeconds
+            junkPieces[i].progress += dt * closeRate
             let piece = junkPieces[i]
             if piece.progress >= 1 {
                 resolveJunkArrival(piece)
             } else {
-                piece.node.position = CGPoint(
-                    x: piece.laneX,
-                    y: depthY(piece.laneX, piece.progress, height: Tuning.junkSize.height))
+                _ = place(piece.node, nearX: piece.laneX, depth: piece.progress,
+                          height: Tuning.junkSize.height)
             }
         }
         junkPieces.removeAll { $0.progress >= 1 }
     }
 
-    // junk follows the rules too: it rides a lane
+    // junk follows the rules too: it sits on a lane
     private func spawnJunk() {
         let lane = railXs.randomElement() ?? centerX
         let node = SKSpriteNode(color: grey(Tuning.junkGrey), size: Tuning.junkSize)
-        node.position = CGPoint(x: lane, y: depthY(lane, 0, height: Tuning.junkSize.height))
+        _ = place(node, nearX: lane, depth: 0, height: Tuning.junkSize.height)
         addChild(node)
         junkPieces.append(Junk(node: node, laneX: lane, progress: 0))
     }
@@ -441,12 +458,12 @@ final class GameScene: SKScene {
             hopCountdown -= dt
             if hopCountdown <= 0 { startHop() }
         }
-        skimmer.position = CGPoint(x: skimmerX,
-                                   y: depthY(skimmerX, progress, height: Tuning.skimmerSize.height))
+        let f = place(skimmer, nearX: skimmerX, depth: progress,
+                      height: Tuning.skimmerSize.height)
         passRing.position = skimmer.position
         let ringScale = Tuning.passRingMinScale
             + (1 - Tuning.passRingMinScale) * CGFloat(1 - progress)
-        passRing.setScale(ringScale)
+        passRing.setScale(ringScale * f)
     }
 
     private func nextHopDelay() -> TimeInterval {
@@ -477,10 +494,10 @@ final class GameScene: SKScene {
         hopCountdown = nextHopDelay()
         skimmerElapsed = 0
         skimmerAlive = true
-        skimmer.position = CGPoint(x: skimmerX,
-                                   y: depthY(skimmerX, 0, height: Tuning.skimmerSize.height))
+        let f = place(skimmer, nearX: skimmerX, depth: 0,
+                      height: Tuning.skimmerSize.height)
         passRing.position = skimmer.position
-        passRing.setScale(1)
+        passRing.setScale(f)
         skimmer.isHidden = false
         passRing.isHidden = false
     }

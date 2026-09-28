@@ -29,7 +29,9 @@ enum Tuning {
     static let stunGravityMultiplier = 3.0
     static let crosshairSpeed: CGFloat = 320 // scene points per second
     static let hitRadius: CGFloat = 18
-    static let trackScrollPerSecond = 0.55 // stripe sweep, track lengths per second
+    static let trackScrollPerSecond = 0.3 // the pod's forward speed, track lengths per second
+    static let farPointScale: CGFloat = 0.12 // size and spread of the world at the horizon
+    static let depthExponent = 1.6 // approach curve; higher looms later
 
     // racers ride the same rails: lane hops instead of weave, and a railed
     // pod bodily blocks its own lane
@@ -65,7 +67,6 @@ enum Tuning {
     static let passRingRadius: CGFloat = 22
     static let junkSize = CGSize(width: 22, height: 12)
     static let junkSpawnSeconds = 2.4
-    static let junkTravelSeconds = 3.2
     static let respawnDelaySeconds = 0.6
 
     // grey-box chrome
