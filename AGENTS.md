@@ -7,10 +7,11 @@ raise conflicts with the owner instead.
 
 ## State
 
-Grey-box playable. All six milestone steps are in: flat U trench, aim-led
-pod with gravity recenter, one weaving Skimmer with a shrinking pass
-ring, space to fire, one obstacle the aim routes over. The owner's feel
-pass is next; expect Tuning churn.
+Grey-box round 2, playable. Round 1 shipped the six milestone steps;
+the owner's first feel pass asked for motion, moving obstacles, a flat
+floor with sloped sides, and the monorail. All are in. The core round-1
+complaint was fighting the aim; the rail and the gravity grace are the
+answers under test.
 
 ## Layout
 
@@ -37,19 +38,43 @@ pass is next; expect Tuning churn.
 
 The grey-box answers whether aim-as-movement feels good. Nothing ships
 from it. `swift run`: arrows move the crosshair, the pod chases its
-horizontal position along the U, gravity recenters both when input is
-idle. Space fires; a hit needs the crosshair on the Skimmer. The
-obstacle blocks the pod unless the aim is above it by
-Tuning.obstacleClearance, which routes the pod over the top. The clock
-expiring counts a pass and flashes the sky band. Q quits. The debug
-line bottom-left shows kills, passes, and the pass clock.
+horizontal position along the trench floor, gravity recenters both
+after Tuning.gravityGraceSeconds of idle. Space fires; a hit needs the
+crosshair on the Skimmer. The clock expiring counts a pass and flashes
+the sky band. Q quits. The debug line bottom-left shows kills, passes,
+the pass clock, and RAIL or STUN state.
 
-The flat reading of the trench: the U is the near cross-section, the
-Skimmer descends from the rim (far) to the track surface (near) over
-Tuning.passClockSeconds. Pseudo-3D row scaling replaces this later.
+Round 2, from the owner's first feel pass:
+
+- Trench profile is a flat floor with straight sloped sides
+  (Tuning.flatHalfWidth).
+- Motion: transverse track stripes sweep from the far rim to the near
+  surface at Tuning.trackScrollPerSecond.
+- The fixed obstacle is replaced by streaming junk: pieces spawn every
+  Tuning.junkSpawnSeconds, race down the trench, and slide past. Junk
+  arriving on the pod stuns it (Tuning.stunSeconds): controls cut,
+  gravity drags the aim home hard, fire disabled.
+- The monorail runs down the floor center. Snap on by putting pod and
+  aim on the line. While railed: the pod locks to the rail and the aim
+  is free (the answer to fighting the aim), the pass clock drains at
+  Tuning.railClockScale, stripes scroll at Tuning.railScrollScale. The
+  lock: leaving takes a sustained aim pull past Tuning.railBreakDistance
+  for Tuning.railBreakSeconds, junk favors the rail lane
+  (Tuning.railJunkChance), and a hit stuns and derails.
+
+DESIGN.md deltas pending the owner's verdict: fixed obstacles as cover
+are out of the grey-box in favor of streaming junk, and the monorail is
+new. Fold both into DESIGN.md once the owner confirms the feel. Gravity
+recenter reads as a natural fit for an analog stick (owner); pads
+arrive later via GameController.
+
+The flat reading of the trench: the profile is the near cross-section;
+Skimmer and junk descend from the rim (far) to the track surface (near).
+Pseudo-3D row scaling replaces this later.
 
 Feel candidates for the pass: aimFollowLag, gravityRecenterPerSecond,
-crosshairSpeed, hitRadius, skimmerWeaveAmplitude, skimmerWeaveHz.
+gravityGraceSeconds, crosshairSpeed, hitRadius, the rail constants, the
+junk cadence.
 
 Rules while the grey-box lives: every constant goes in Tuning.swift;
 keep the scene tree flat and disposable; no music, no art, no score
