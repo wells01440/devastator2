@@ -7,16 +7,11 @@ raise conflicts with the owner instead.
 
 ## State
 
-Grey-box round 6, playable. Round 1 shipped the six milestone steps.
-Round 2 added motion, streaming junk, the flat floor, and the monorail.
-Round 3 inverted the polarity: the rail is home base with normal
-controls, off-rail is the wonky off-script state; junk is shootable.
-Round 4 made it a lane game (owner: "almost a tempest feel"): three
-rails, racers ride them too. Round 5 moved the side rails to the wall
-centers and put all junk on lanes. Round 6 fixed the world model: one
-perspective for everything in the slot. Round 7 turned it into a chase
-(owner: "way more fun"): the quarry runs away, and the hop pair and
-lane blast landed.
+Grey-box gameplay ACCEPTED by the owner ("the chase is it") after seven
+feel rounds; the round history is in git log. The graphic build is in
+progress: first art pass landed (palette, pixel-art sprites, lit
+trench, sky). Mechanics are settled as described below; visual work
+continues.
 
 ## Layout
 
@@ -25,8 +20,10 @@ lane blast landed.
 | DESIGN.md | the gameplay spec, settled through four design rounds |
 | Package.swift | SPM executable target, macOS 13+ |
 | Sources/Devastator2/main.swift | AppKit bootstrap: window + SKView |
-| Sources/Devastator2/GameScene.swift | the grey-box scene; disposable |
+| Sources/Devastator2/GameScene.swift | the scene: mechanics settled, visuals evolving |
 | Sources/Devastator2/Tuning.swift | every gameplay number; nothing numeric hides elsewhere |
+| Sources/Devastator2/Palette.swift | every color, by role; level-1 lunar dawn values |
+| Sources/Devastator2/Sprites.swift | pixel-art sprites as C64-style string maps |
 | Assets/Music/ | 12 curated tracks + MANIFEST.md; not bundled yet |
 
 ## Build and run
@@ -39,17 +36,24 @@ lane blast landed.
   only to that repo. The original's sprite bytes (for homage quotes like
   the Earth-shatter frames) are in ../devastator/Devastator/GameData.incl.
 
-## Current milestone: the feel pass
+## Current milestone: the graphic build
 
-The grey-box answers whether aim-as-movement feels good. Nothing ships
-from it. `swift run`: arrows move the crosshair, the pod chases its
-horizontal position along the trench floor, gravity recenters both
-after Tuning.gravityGraceSeconds of idle. Space fires; a hit needs the
-crosshair on the Skimmer. The clock expiring counts a pass and flashes
-the sky band. Q quits. The debug line bottom-left shows kills, passes,
-the pass clock, and RAIL or STUN state.
+Grey-box gameplay is accepted; do not change mechanics without the
+owner. The DS-era look lands in passes. Pass 1 (done): Palette.swift
+role colors, Sprites.swift pixel-art pod/Skimmer/junk/Earth (nearest
+filtering, 2 scene points per art pixel), starfield and Earth in the
+sky, horizon glow, lit bevel facets on the slot's cut faces, hot rails
+with glow, reticle crosshair, engine glow while railed, kill
+fragments. Remaining passes, roughly in order: brink-time danger
+reddening, level palette themes, richer trench dressing and parallax,
+a real HUD replacing the debug line, cut-scene beats, music through
+AVAudioEngine per Assets/Music/MANIFEST.md, pads via GameController.
 
-Current gameplay:
+Controls: arrows aim, space fires, double-tap up hops, double-tap down
+slam-locks or clunks off, Q quits. The debug line bottom-left shows
+kills, passes, the chase clock, and RAIL/BRAKE/STUN state.
+
+Settled gameplay (the grey-box outcome):
 
 - The world model (owner's spec): you are slotted into a trench on the
   moon with three hot rails; the bad guys are in the same slot, on the
@@ -110,23 +114,16 @@ double-tap-down dismount and the Tempest read. Owner ideas parked for
 later: thrown junk (at you, or up in the air), and the Groove reshaping
 over time (notch shape changing, rail positions moving).
 
-Feel candidates for the pass: the two dismounts, the hop cadence,
-blockKnockbackSeconds, wonkAimDrag, aimFollowLag,
-gravityRecenterPerSecond, gravityGraceSeconds, crosshairSpeed,
-hitRadius, the rail constants, the junk cadence.
-
-Rules while the grey-box lives: every constant goes in Tuning.swift;
-keep the scene tree flat and disposable; no music, no art, no score
-display beyond the debug line.
-
-After the feel pass: scoring with brink tiers, more racer types, and a
-depth treatment that keeps the 2D rear-forward view.
+After the graphic passes: scoring with brink tiers and the chain,
+banked DEVASTATOR, more racer types, the buddy pod, levels.
 
 ## Conventions
 
 - Swift, SpriteKit, AVAudioEngine, GameController. Platform-native
   only; no third-party packages without the owner's say.
-- No magic numbers outside Tuning.swift.
+- No magic numbers outside Tuning.swift. Colors live in Palette.swift
+  by role; pixel art lives in Sprites.swift as string maps. Shape-path
+  ratios (the reticle) count as art, not magic numbers.
 - Music: read Assets/Music/MANIFEST.md before touching audio. Slot
   assignments there are provisional until the owner's ear pass. Never
   edit the MP3s in place; masters live in the bugthing project.

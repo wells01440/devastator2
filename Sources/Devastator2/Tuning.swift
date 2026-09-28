@@ -62,8 +62,7 @@ enum Tuning {
     static let railDoubleTapSeconds = 0.3 // double-tap down = clunk off in place
     static let wonkAimDrag: CGFloat = 0.25 // off-rail, pod yaw smears the aim
 
-    // grey-box geometry, scene points
-    static let skyBandHeight: CGFloat = 64
+    // geometry, scene points
     static let trenchRimY: CGFloat = 296
     static let trenchBottomY: CGFloat = 64
     static let trenchWallInset: CGFloat = 72
@@ -79,7 +78,24 @@ enum Tuning {
     static let junkSpawnSeconds = 2.4
     static let respawnDelaySeconds = 0.6
 
-    // grey-box chrome
+    // graphics chrome
+    static let bevelDepth: CGFloat = 12 // lit bevel along floor and slopes
+    static let starCount = 26
+    static let starSize = CGSize(width: 2, height: 2)
+    static let starMargin: CGFloat = 8
+    static let starAlphas: [CGFloat] = [1, 0.7, 0.45]
+    static let horizonGlowHeight: CGFloat = 3
+    static let earthX: CGFloat = 120
+    static let earthY: CGFloat = 350
+    static let earthSize = CGSize(width: 24, height: 24)
+    static let engineGlowSize = CGSize(width: 12, height: 4)
+    static let railGlowWidth: CGFloat = 4
+    static let tracerGlowWidth: CGFloat = 2
+    static let fragmentCount = 6
+    static let fragmentSize = CGSize(width: 4, height: 4)
+    static let fragmentDistance: CGFloat = 40
+    static let fragmentSeconds = 0.4
+
     static let tracerFadeSeconds = 0.18
     static let killPopScale: CGFloat = 1.8
     static let passFlashAlpha: CGFloat = 0.7
@@ -105,13 +121,4 @@ enum Tuning {
     static let debugFontSize: CGFloat = 10
     static let debugInset: CGFloat = 8
     static let maxFrameDt = 0.05
-
-    // grey-box palette, white levels
-    static let skyGrey: CGFloat = 0.16
-    static let rockGrey: CGFloat = 0.34
-    static let edgeGrey: CGFloat = 0.55
-    static let junkGrey: CGFloat = 0.45
-    static let skimmerGrey: CGFloat = 0.72
-    static let podGrey: CGFloat = 0.85
-    static let podRailGrey: CGFloat = 1.0
 }

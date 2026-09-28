@@ -24,6 +24,7 @@ final class GameScene: SKScene {
     private let skyFlash = SKSpriteNode()
     private var railGlows: [SKShapeNode] = []
     private let pod = SKSpriteNode()
+    private let engineGlow = SKSpriteNode()
     private let crosshair = SKShapeNode()
     private let skimmer = SKSpriteNode()
     private let passRing = SKShapeNode(circleOfRadius: Tuning.passRingRadius)
@@ -122,12 +123,10 @@ final class GameScene: SKScene {
         return f
     }
 
-    private func grey(_ white: CGFloat) -> SKColor { SKColor(white: white, alpha: 1) }
-
     // MARK: build
 
     override func didMove(to view: SKView) {
-        backgroundColor = .black
+        backgroundColor = Palette.space
         buildTrench()
         buildActors()
         podX = centerX
@@ -137,16 +136,36 @@ final class GameScene: SKScene {
     }
 
     private func buildTrench() {
-        let sky = SKSpriteNode(color: grey(Tuning.skyGrey),
-                               size: CGSize(width: size.width, height: Tuning.skyBandHeight))
-        sky.position = CGPoint(x: centerX, y: size.height - Tuning.skyBandHeight / 2)
-        addChild(sky)
+        // stars: a golden-ratio scatter above the rim, deterministic
+        let starBottom = Tuning.trenchRimY + Tuning.starMargin
+        let starSpan = size.height - starBottom - Tuning.starMargin
+        for i in 0..<Tuning.starCount {
+            let fx = (Double(i) * 0.61803).truncatingRemainder(dividingBy: 1)
+            let fy = (Double(i) * 0.38197).truncatingRemainder(dividingBy: 1)
+            let star = SKSpriteNode(color: Palette.star, size: Tuning.starSize)
+            star.position = CGPoint(x: CGFloat(fx) * size.width,
+                                    y: starBottom + CGFloat(fy) * starSpan)
+            star.alpha = Tuning.starAlphas[i % Tuning.starAlphas.count]
+            addChild(star)
+        }
 
-        skyFlash.color = .white
-        skyFlash.size = sky.size
-        skyFlash.position = sky.position
+        let earth = SKSpriteNode(texture: Sprites.earth)
+        earth.size = Tuning.earthSize
+        earth.position = CGPoint(x: Tuning.earthX, y: Tuning.earthY)
+        addChild(earth)
+
+        // the kablammo flash washes the whole sky
+        skyFlash.color = Palette.flash
+        skyFlash.size = CGSize(width: size.width, height: size.height - Tuning.trenchRimY)
+        skyFlash.position = CGPoint(x: centerX, y: (size.height + Tuning.trenchRimY) / 2)
         skyFlash.alpha = 0
         addChild(skyFlash)
+
+        let horizon = SKSpriteNode(color: Palette.horizonGlow,
+                                   size: CGSize(width: size.width,
+                                                height: Tuning.horizonGlowHeight))
+        horizon.position = CGPoint(x: centerX, y: Tuning.trenchRimY)
+        addChild(horizon)
 
         let path = CGMutablePath()
         path.move(to: CGPoint(x: 0, y: 0))
@@ -157,10 +176,44 @@ final class GameScene: SKScene {
         path.addLine(to: CGPoint(x: size.width, y: 0))
         path.closeSubpath()
         let rock = SKShapeNode(path: path)
-        rock.fillColor = grey(Tuning.rockGrey)
-        rock.strokeColor = grey(Tuning.edgeGrey)
+        rock.fillColor = Palette.rockBody
+        rock.strokeColor = Palette.edgeLight
         rock.lineWidth = Tuning.strokeWidth
         addChild(rock)
+
+        // lit bevels: the cut faces of the slot catch the light
+        func facet(_ points: [CGPoint], _ color: SKColor) {
+            let p = CGMutablePath()
+            p.addLines(between: points)
+            p.closeSubpath()
+            let node = SKShapeNode(path: p)
+            node.fillColor = color
+            node.strokeColor = .clear
+            addChild(node)
+        }
+        let bevel = Tuning.bevelDepth
+        let bottomY = Tuning.trenchBottomY
+        let rimY = Tuning.trenchRimY
+        facet([CGPoint(x: flatMinX, y: bottomY),
+               CGPoint(x: flatMaxX, y: bottomY),
+               CGPoint(x: flatMaxX, y: bottomY - bevel),
+               CGPoint(x: flatMinX, y: bottomY - bevel)], Palette.rockFloor)
+        facet([CGPoint(x: flatMinX, y: bottomY),
+               CGPoint(x: leftWallX, y: rimY),
+               CGPoint(x: leftWallX, y: rimY - bevel),
+               CGPoint(x: flatMinX, y: bottomY - bevel)], Palette.rockSlopeLit)
+        facet([CGPoint(x: flatMaxX, y: bottomY),
+               CGPoint(x: rightWallX, y: rimY),
+               CGPoint(x: rightWallX, y: rimY - bevel),
+               CGPoint(x: flatMaxX, y: bottomY - bevel)], Palette.rockSlopeShade)
+        facet([CGPoint(x: 0, y: rimY),
+               CGPoint(x: leftWallX, y: rimY),
+               CGPoint(x: leftWallX, y: rimY - bevel),
+               CGPoint(x: 0, y: rimY - bevel)], Palette.surface)
+        facet([CGPoint(x: rightWallX, y: rimY),
+               CGPoint(x: size.width, y: rimY),
+               CGPoint(x: size.width, y: rimY - bevel),
+               CGPoint(x: rightWallX, y: rimY - bevel)], Palette.surface)
 
         // lane lines: the rails run from the horizon out into their bumps,
         // so riding one is visible
@@ -169,7 +222,7 @@ final class GameScene: SKScene {
             lane.move(to: project(railX, 0).point)
             lane.addLine(to: CGPoint(x: railX, y: trackY(railX)))
             let laneNode = SKShapeNode(path: lane)
-            laneNode.strokeColor = grey(Tuning.edgeGrey)
+            laneNode.strokeColor = Palette.laneLine
             laneNode.lineWidth = Tuning.strokeWidth
             laneNode.alpha = Tuning.laneLineAlpha
             addChild(laneNode)
@@ -190,7 +243,8 @@ final class GameScene: SKScene {
                 }
             }
             let node = SKShapeNode(path: glow)
-            node.strokeColor = .white
+            node.strokeColor = Palette.railHot
+            node.glowWidth = Tuning.railGlowWidth
             node.lineWidth = Tuning.railLineWidth
             node.alpha = Tuning.railIdleAlpha
             addChild(node)
@@ -199,7 +253,7 @@ final class GameScene: SKScene {
 
         for _ in 0..<Tuning.stripeCount {
             let stripe = SKShapeNode()
-            stripe.strokeColor = grey(Tuning.edgeGrey)
+            stripe.strokeColor = Palette.stripe
             stripe.lineWidth = Tuning.strokeWidth
             addChild(stripe)
             stripes.append(stripe)
@@ -207,33 +261,47 @@ final class GameScene: SKScene {
     }
 
     private func buildActors() {
-        skimmer.color = grey(Tuning.skimmerGrey)
+        skimmer.texture = Sprites.skimmer
         skimmer.size = Tuning.skimmerSize
         addChild(skimmer)
 
-        passRing.strokeColor = .white
+        passRing.strokeColor = Palette.enemyMarker
         passRing.fillColor = .clear
         passRing.lineWidth = Tuning.strokeWidth
         addChild(passRing)
 
-        pod.color = grey(Tuning.podGrey)
+        pod.texture = Sprites.pod
         pod.size = Tuning.podSize
         addChild(pod)
 
+        engineGlow.color = Palette.podEngine
+        engineGlow.size = Tuning.engineGlowSize
+        engineGlow.position = CGPoint(x: 0, y: -Tuning.podSize.height / 2)
+        engineGlow.blendMode = .add
+        engineGlow.isHidden = true
+        pod.addChild(engineGlow)
+
+        // the reticle: ring, four ticks, an open center (ratios are art)
         let r = Tuning.crosshairRadius
         let cross = CGMutablePath()
-        cross.move(to: CGPoint(x: -r, y: 0))
-        cross.addLine(to: CGPoint(x: r, y: 0))
-        cross.move(to: CGPoint(x: 0, y: -r))
-        cross.addLine(to: CGPoint(x: 0, y: r))
+        cross.addEllipse(in: CGRect(x: -r * 0.6, y: -r * 0.6,
+                                    width: r * 1.2, height: r * 1.2))
+        cross.move(to: CGPoint(x: -r * 1.2, y: 0))
+        cross.addLine(to: CGPoint(x: -r * 0.5, y: 0))
+        cross.move(to: CGPoint(x: r * 0.5, y: 0))
+        cross.addLine(to: CGPoint(x: r * 1.2, y: 0))
+        cross.move(to: CGPoint(x: 0, y: -r * 1.2))
+        cross.addLine(to: CGPoint(x: 0, y: -r * 0.5))
+        cross.move(to: CGPoint(x: 0, y: r * 0.5))
+        cross.addLine(to: CGPoint(x: 0, y: r * 1.2))
         crosshair.path = cross
-        crosshair.strokeColor = .white
+        crosshair.strokeColor = Palette.reticle
         crosshair.lineWidth = Tuning.strokeWidth
         addChild(crosshair)
 
         debugLine.fontName = "Menlo"
         debugLine.fontSize = Tuning.debugFontSize
-        debugLine.fontColor = grey(Tuning.edgeGrey)
+        debugLine.fontColor = Palette.debugText
         debugLine.horizontalAlignmentMode = .left
         debugLine.position = CGPoint(x: Tuning.debugInset, y: Tuning.debugInset)
         addChild(debugLine)
@@ -335,7 +403,7 @@ final class GameScene: SKScene {
             let t = 1 - podAirRemaining / Tuning.podHopSeconds
             pod.position.y += Tuning.podHopHeight * CGFloat(sin(Double.pi * t))
         }
-        pod.color = grey(isRailed ? Tuning.podRailGrey : Tuning.podGrey)
+        engineGlow.isHidden = !isRailed
         for (i, glow) in railGlows.enumerated() {
             glow.alpha = i == railedIndex ? 1 : Tuning.railIdleAlpha
         }
@@ -384,7 +452,7 @@ final class GameScene: SKScene {
     private func spark(at point: CGPoint, radius: CGFloat) {
         let s = SKShapeNode(circleOfRadius: radius)
         s.position = point
-        s.strokeColor = .white
+        s.strokeColor = Palette.spark
         s.lineWidth = Tuning.strokeWidth
         addChild(s)
         s.run(.sequence([
@@ -441,7 +509,8 @@ final class GameScene: SKScene {
     // junk follows the rules too: it sits on a lane
     private func spawnJunk() {
         let lane = railXs.randomElement() ?? centerX
-        let node = SKSpriteNode(color: grey(Tuning.junkGrey), size: Tuning.junkSize)
+        let node = SKSpriteNode(texture: Sprites.junk)
+        node.size = Tuning.junkSize
         _ = place(node, nearX: lane, depth: 0, height: Tuning.junkSize.height)
         addChild(node)
         junkPieces.append(Junk(node: node, laneX: lane, progress: 0))
@@ -548,6 +617,19 @@ final class GameScene: SKScene {
     private func killSkimmer() {
         kills += 1
         spark(at: skimmer.position, radius: Tuning.hitRadius)
+        for i in 0..<Tuning.fragmentCount {
+            let frag = SKSpriteNode(color: Palette.enemyEngine, size: Tuning.fragmentSize)
+            frag.position = skimmer.position
+            let angle = Double(i) / Double(Tuning.fragmentCount) * 2 * Double.pi
+            frag.run(.sequence([
+                .group([.moveBy(x: CGFloat(cos(angle)) * Tuning.fragmentDistance,
+                                y: CGFloat(sin(angle)) * Tuning.fragmentDistance,
+                                duration: Tuning.fragmentSeconds),
+                        .fadeOut(withDuration: Tuning.fragmentSeconds)]),
+                .removeFromParent(),
+            ]))
+            addChild(frag)
+        }
         despawnSkimmer()
     }
 
@@ -618,7 +700,8 @@ final class GameScene: SKScene {
         p.move(to: pod.position)
         p.addLine(to: point)
         tracer.path = p
-        tracer.strokeColor = .white
+        tracer.strokeColor = Palette.tracer
+        tracer.glowWidth = Tuning.tracerGlowWidth
         tracer.lineWidth = Tuning.strokeWidth
         addChild(tracer)
         tracer.run(.sequence([.fadeOut(withDuration: Tuning.tracerFadeSeconds),
