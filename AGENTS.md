@@ -7,11 +7,12 @@ raise conflicts with the owner instead.
 
 ## State
 
-Grey-box round 3, playable. Round 1 shipped the six milestone steps.
+Grey-box round 4, playable. Round 1 shipped the six milestone steps.
 Round 2 added motion, streaming junk, the flat floor, and the monorail.
-Round 3 inverted the polarity on the owner's second feel pass: the rail
-is home base with normal controls, off-rail is the wonky off-script
-state. Junk is shootable.
+Round 3 inverted the polarity: the rail is home base with normal
+controls, off-rail is the wonky off-script state; junk is shootable.
+Round 4 made it a lane game (owner: "almost a tempest feel"): three
+rails, and racers ride the same rails.
 
 ## Layout
 
@@ -49,11 +50,18 @@ Round 3 gameplay, per the owner's second feel pass:
 - The view is the 2D rear-forward cross-section (owner's call, "not the
   3d rendering, just the two-d"). The rail is a bump on the floor at
   center (Tuning.railBumpHalfWidth/Height), not a depth line.
-- The rail is home base. Ride the pod onto the bump with the aim near
-  center and it notches in: jolt, spark, RAIL. Railed, the controls are
-  normal: direct aim, no gravity, the pod holds the rail. The pass
-  clock drains at Tuning.railClockScale and stripes scroll at
-  Tuning.railScrollScale (the go-fast).
+- Three rails on the floor, left center right (Tuning.railOffsetsX).
+  A rail is home base. Ride the pod onto a bump with the aim near it
+  and it notches in: jolt, spark, RAIL L/C/R in the debug line. Railed,
+  the controls are normal: direct aim, no gravity, the pod holds the
+  rail. The pass clock drains at Tuning.railClockScale and stripes
+  scroll at Tuning.railScrollScale (the go-fast).
+- Racers follow the same mechanics (owner's call). The Skimmer spawns
+  on a rail, rides it, and hops to an adjacent lane every
+  Tuning.skimmerHopIntervalSeconds plus jitter. A railed pod bodily
+  blocks its own lane: a Skimmer arriving there cannot pass; it clangs,
+  gives back Tuning.blockKnockbackSeconds of pass clock, and is forced
+  to hop. Passing needs a lane you are not holding.
 - Off-rail is off script: slower scroll, and the controls go wonky
   because yaw, pitch, and aim are one input; the pod's motion smears
   the crosshair by Tuning.wonkAimDrag. Gravity pulls the aim down to
@@ -68,14 +76,17 @@ Round 3 gameplay, per the owner's second feel pass:
   (Tuning.railJunkChance).
 
 DESIGN.md deltas pending the owner's verdict: fixed obstacles as cover
-became streaming shootable junk; the monorail is new and is home base;
-the view is 2D rear-forward, so pseudo-3D row scaling may be cut.
-Gravity recenter reads as a natural fit for an analog stick (owner);
-pads arrive later via GameController.
+became streaming shootable junk; the three-lane monorail system is new
+and is home base for both sides, replacing the weave with lane hops and
+adding lane blocking; the view is 2D rear-forward, so pseudo-3D row
+scaling may be cut. Gravity recenter reads as a natural fit for an
+analog stick (owner); pads arrive later via GameController. Owner likes
+the double-tap-down dismount and the Tempest read.
 
-Feel candidates for the pass: the two dismounts, wonkAimDrag,
-aimFollowLag, gravityRecenterPerSecond, gravityGraceSeconds,
-crosshairSpeed, hitRadius, the rail constants, the junk cadence.
+Feel candidates for the pass: the two dismounts, the hop cadence,
+blockKnockbackSeconds, wonkAimDrag, aimFollowLag,
+gravityRecenterPerSecond, gravityGraceSeconds, crosshairSpeed,
+hitRadius, the rail constants, the junk cadence.
 
 Rules while the grey-box lives: every constant goes in Tuning.swift;
 keep the scene tree flat and disposable; no music, no art, no score

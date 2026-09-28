@@ -29,9 +29,14 @@ enum Tuning {
     static let stunGravityMultiplier = 3.0
     static let crosshairSpeed: CGFloat = 320 // scene points per second
     static let hitRadius: CGFloat = 18
-    static let skimmerWeaveAmplitude: CGFloat = 48
-    static let skimmerWeaveHz = 0.35
     static let trackScrollPerSecond = 0.55 // stripe sweep, track lengths per second
+
+    // racers ride the same rails: lane hops instead of weave, and a railed
+    // pod bodily blocks its own lane
+    static let skimmerHopIntervalSeconds = 1.6
+    static let skimmerHopJitterSeconds = 0.8
+    static let skimmerHopSeconds = 0.25 // lateral slide to the next lane
+    static let blockKnockbackSeconds = 2.5 // pass clock returned by a lane block
 
     // the monorails: home base, three lanes. Notched in, controls are normal
     // and you go fast; off the rail you are slower and the controls go wonky.

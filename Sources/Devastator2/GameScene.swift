@@ -40,7 +40,12 @@ final class GameScene: SKScene {
     private var junkPieces: [Junk] = []
     private var junkSpawnCountdown: TimeInterval = 0
     private var skimmerAlive = false
-    private var skimmerLaneX: CGFloat = 0
+    private var skimmerLane = 0
+    private var skimmerX: CGFloat = 0
+    private var hopTarget: Int?
+    private var hopFromX: CGFloat = 0
+    private var hopT: TimeInterval = 0
+    private var hopCountdown: TimeInterval = 0
     private var skimmerElapsed: TimeInterval = 0
     private var respawnCountdown: TimeInterval = 0
     private var kills = 0
@@ -397,27 +402,64 @@ final class GameScene: SKScene {
         skimmerElapsed += dt * (isRailed ? Tuning.railClockScale : 1)
         let progress = skimmerElapsed / Tuning.passClockSeconds
         if progress >= 1 {
-            skimmerPassed()
+            // a railed pod bodily blocks its own lane
+            if railedIndex == skimmerLane {
+                blockedPass()
+            } else {
+                skimmerPassed()
+            }
             return
         }
-        let weave = CGFloat(sin(2 * Double.pi * Tuning.skimmerWeaveHz * skimmerElapsed))
-        let halfW = Tuning.skimmerSize.width / 2
-        let x = (skimmerLaneX + Tuning.skimmerWeaveAmplitude * weave)
-            .clamped(leftWallX + halfW, rightWallX - halfW)
-        skimmer.position = CGPoint(x: x, y: depthY(x, progress, height: Tuning.skimmerSize.height))
+        if let target = hopTarget {
+            hopT += dt
+            let t = min(1, hopT / Tuning.skimmerHopSeconds)
+            skimmerX = hopFromX + (railXs[target] - hopFromX) * CGFloat(t)
+            if t >= 1 {
+                skimmerLane = target
+                hopTarget = nil
+                hopCountdown = nextHopDelay()
+            }
+        } else {
+            skimmerX = railXs[skimmerLane]
+            hopCountdown -= dt
+            if hopCountdown <= 0 { startHop() }
+        }
+        skimmer.position = CGPoint(x: skimmerX,
+                                   y: depthY(skimmerX, progress, height: Tuning.skimmerSize.height))
         passRing.position = skimmer.position
         passRing.setScale(CGFloat(1 - progress))
+    }
+
+    private func nextHopDelay() -> TimeInterval {
+        Tuning.skimmerHopIntervalSeconds + .random(in: 0...Tuning.skimmerHopJitterSeconds)
+    }
+
+    private func startHop() {
+        let options = [skimmerLane - 1, skimmerLane + 1].filter { railXs.indices.contains($0) }
+        guard let target = options.randomElement() else { return }
+        hopTarget = target
+        hopFromX = skimmerX
+        hopT = 0
+    }
+
+    private func blockedPass() {
+        skimmerElapsed = max(0, skimmerElapsed - Tuning.blockKnockbackSeconds)
+        spark(at: skimmer.position, radius: Tuning.sparkRadius)
+        jolt()
+        if hopTarget == nil { startHop() }
     }
 
     // MARK: skimmer lifecycle
 
     private func spawnSkimmer() {
-        let margin = Tuning.skimmerWeaveAmplitude + Tuning.skimmerSize.width
-        skimmerLaneX = .random(in: (leftWallX + margin)...(rightWallX - margin))
+        skimmerLane = railXs.indices.randomElement() ?? 0
+        skimmerX = railXs[skimmerLane]
+        hopTarget = nil
+        hopCountdown = nextHopDelay()
         skimmerElapsed = 0
         skimmerAlive = true
-        skimmer.position = CGPoint(x: skimmerLaneX,
-                                   y: depthY(skimmerLaneX, 0, height: Tuning.skimmerSize.height))
+        skimmer.position = CGPoint(x: skimmerX,
+                                   y: depthY(skimmerX, 0, height: Tuning.skimmerSize.height))
         passRing.position = skimmer.position
         passRing.setScale(1)
         skimmer.isHidden = false
