@@ -22,13 +22,14 @@ spawns ride the soundtrack's beat grid.
 
 ## Core loop
 
-1. A level begins: ten opponents (W).
+1. A level begins: ten opponents (W). Credits roll after the tenth
+   level-up (W) — one hundred opponents, the heritage number.
 2. Aim the crosshair; your pod slides along the U to follow it.
 3. Kill each pod before it passes you. Dodge track junk and thrown junk.
-4. A pod that passes climbs to the sky band, armored, and starts an arm
-   countdown. Hits up there stagger it and stretch the countdown; strip
-   the armor to kill it. While your aim is in the sky, the trench runs
-   unguarded.
+4. A pod that passes climbs to the sky band and starts an arm
+   countdown, wearing whatever armor pickups it grabbed on the way up
+   (W). Hits stagger it and stretch the countdown; strip the armor to
+   kill it. While your aim is in the sky, the trench runs unguarded.
 5. A launched missile plays the kill-shot cut scene and costs Earth one
    shield segment. Lose all three and the Devastator finishes Earth.
 6. Ten opponents down: level up — palette and music change (W), next
@@ -36,14 +37,30 @@ spawns ride the soundtrack's beat grid.
 
 ## The pod: health and stun (W: stunned, with a life level)
 
-- The pod has a life bar. It is damaged by track junk it plows into and
-  by junk the enemies throw back at you (W).
+- The pod has a life bar that grows through armor pickups (W). It is
+  damaged by track junk it plows into and by junk the enemies throw
+  back at you (W).
 - A damaging hit stuns: controls cut out for a beat and lunar gravity
   drags the crosshair and pod back to the bottom of the U. The penalty
   is positional, not just numeric — you recenter whether you like it or
   not.
-- Life empty: pod offline for a long respawn while the track runs
-  unguarded. Earth's shields remain the only lose condition.
+- Life empty: instant respawn with an invincibility flash (W). Death
+  costs your chain, your banked DEVASTATOR, and the seconds the track
+  ran unguarded. Earth's shields remain the only lose condition.
+
+## The buddy pod (W: a two-up game even when it isn't)
+
+A second gun pod rides the Groove in every game. In solo play it is an
+AI wingman; in co-op, player 2 takes it over — same game, no separate
+mode.
+
+- The buddy covers the lane your aim left, intercepts thrown junk, and
+  finishes staggered sky-band escapees. It never takes brink-window
+  kills; the score plays are yours.
+- The buddy has its own life, stun, and pickups, and its own chain in
+  co-op. Earth's shields and the level are shared.
+- Two pods on one U also means two bodies to route around each other —
+  crossing aims swap your pods' positions with a small scramble cost.
 
 ## Movement: aim-led pod with lunar gravity (W)
 
@@ -57,14 +74,20 @@ spawns ride the soundtrack's beat grid.
 - Obstacles are cover for both sides: enemy pods duck behind them, and
   shots do not pass through them.
 
-## Turbo and the ram (W: collectables, no extra buttons)
+## Pickups: a contested race line (W: collectables, beat-spawned)
 
-- Speed-up collectables sit in the trench. Driving your aim through one
-  triggers turbo: a short burst where the pod accelerates and contact
-  kills — the ram mechanic without a ram button (W).
-- During turbo the pod shrugs off junk. Ramming a Shell staggers it
-  instead of killing.
-- No new controls, so the two-player button budget stays intact (W).
+Pickups spawn on the soundtrack's beat grid (W) along the racing line.
+Both sides can take them — enemies grab pickups too, and you can see
+them do it. Denying a pickup is a reason to be somewhere.
+
+- Turbo (W): a short burst where the pod accelerates and contact kills —
+  the ram mechanic without a ram button. During turbo the pod shrugs
+  off junk. Ramming a Shell staggers it instead of killing.
+- Armor: grows the pod's life bar (W). A racer that grabs armor carries
+  it into the sky band — you watched it get tougher, so you know what
+  the escape will cost (W: armor by pickups, same principle).
+- No new controls; pickups trigger on contact, so the button budget
+  stays intact (W).
 
 ## Enemies (W: smarter than bouncing)
 
@@ -101,17 +124,20 @@ ring around it.
 Your railgun's overcharge. The meter fills only from brink bonuses, so
 the super is earned by playing close to the wire.
 
-- Fired with a dedicated key. The shot shatters every enemy in the
-  trench; wrecks ricochet as secondary fragments that sweep the sky band
-  too (W: secondary asteroids). Fragment kills score at current
-  multipliers.
+- Fired with secondary fire (W). One charge banks, Mario Kart style
+  (W): a full meter holds until spent, and further brink kills overflow
+  to score instead.
+- The shot shatters every enemy in the trench; wrecks ricochet as
+  secondary fragments that sweep the sky band too (W: secondary
+  asteroids). Fragment kills score at current multipliers.
 - Full-screen palette flash, the one moment the game goes loud.
 
 ## Levels, difficulty, theming
 
-- A level is ten opponents (W). Level-up changes the palette theme and
-  the music (W), then raises enemy speed, simultaneous racers, junk
-  density and throw rate, and shortens the sky-band arm time.
+- A level is ten opponents (W); credits after the tenth level-up (W).
+  Level-up changes the palette theme and the music (W), then raises
+  enemy speed, simultaneous racers, junk density and throw rate, and
+  shortens the sky-band arm time.
 - Palette arc across levels: lunar dawn greys, hard noon white, dusk
   amber, earthlight blue-black. Danger override: the world reddens in
   brink time, inverting during a DEVASTATOR.
@@ -143,6 +169,17 @@ the super is earned by playing close to the wire.
 - The original's 445-535 Hz siren warble returns as the bassline motif.
 - SID-flavored instruments; kill, brink, pass, stun, and turbo each get
   a signature sound.
+
+## Race feel (W: podracers)
+
+The core stays trench defense, but the presentation is a race: engine
+doppler as racers close and pass, speed lines and camera shake in turbo,
+drafting wobble when a racer slipstreams the pace pod, position-style
+callouts when one crosses half-track. Contested pickups on the racing
+line carry most of this feeling.
+
+A pure race mode — first to the far gate against the pack — is parked as
+a post-credits unlock idea, not core (W: maybe, don't get complex).
 
 ## Look (W: Nintendo DS era)
 
@@ -188,13 +225,23 @@ First technical milestone when design settles: a grey-box trench with
 aim-led pod movement and one Skimmer, to test whether aim-as-movement
 feels right. Everything else hangs off that feel.
 
+## Controls (proposal)
+
+| | Aim | Fire | DEVASTATOR |
+|---|---|---|---|
+| Player 1 | arrows | space | return |
+| Player 2 (buddy) | W A S D | F | G |
+
+Gamepads via the GameController framework: left stick aim, right
+trigger fire, left trigger DEVASTATOR. Co-op strongly prefers pads.
+
 ## Open questions for conversation
 
-1. Two-player: the original's asymmetric duel (P2 flies a racer) — same
-   screen? alternating levels? P2's controls with the current button
-   budget?
-2. DEVASTATOR trigger key, and whether charges bank.
-3. Pod life size: hits-to-offline, and respawn length.
-4. Sky-band armor: how many hits, and how much time per stagger.
-5. Session length: how many levels to credits, endless after?
-6. Do turbo collectables spawn on the beat grid?
+1. Buddy AI tuning: how good is too good — does it ever miss on
+   purpose?
+2. The original's asymmetric duel (P2 flies a racer): keep as a third
+   mode, or let co-op replace it?
+3. A firepower pickup (strip armor faster): third pickup type, or is
+   two enough?
+4. Post-credits: endless grand prix, the race mode, both, neither?
+5. Cross-aim pod swap in co-op: fun or fiddly? Needs the grey-box test.
