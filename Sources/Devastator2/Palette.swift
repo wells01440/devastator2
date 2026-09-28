@@ -54,6 +54,7 @@ enum Palette {
     static let earthNight = SKColor(red: 0.04, green: 0.05, blue: 0.12, alpha: 1)
 
     // interface and effects
+    static let shieldGreen = SKColor(red: 0.35, green: 0.90, blue: 0.50, alpha: 1)
     static let reticle = SKColor(red: 0.55, green: 1.0, blue: 0.65, alpha: 1)
     static let tracer = SKColor(red: 0.80, green: 1.0, blue: 0.90, alpha: 1)
     static let spark = SKColor(red: 1.0, green: 0.95, blue: 0.75, alpha: 1)

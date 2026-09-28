@@ -53,13 +53,25 @@ enum Tuning {
     static let bigJumpHeight: CGFloat = 52 // the vertical big jump off the floor
     static let bigJumpSloMo = 0.35 // world rate while airborne on a big jump
 
-    // the quarry: rides the rails and runs for the far mouth
+    // the quarry: rides the rails, runs for the far mouth, and shoots back
     static let skimmerSpawnDepth = 0.85 // how close ahead it starts
     static let skimmerHopIntervalSeconds = 1.6
     static let skimmerHopJitterSeconds = 0.8
     static let skimmerHopSeconds = 0.25 // slide to the next rail
     static let skimmerBrakeSeconds = 2.5 // chase clock handed back by a mercy brake
     static let mercyEscapeFraction = 0.7 // escape progress where mercy can trigger
+    static let skimmerHitsToKill = 3
+    static let skimmerHitKnockbackSeconds = 0.5 // a hit staggers the getaway
+    static let skimmerShootIntervalSeconds = 2.8
+    static let skimmerShootJitterSeconds = 1.4
+    static let boltDepthPerSecond = 1.3 // rail-gun return fire closing speed
+
+    // level-ups ride the lanes like junk; catch them on the ground
+    static let pickupFirstSeconds = 5.0
+    static let pickupIntervalSeconds = 12.0
+    static let pickupSize = CGSize(width: 12, height: 12)
+    static let gunLevelMax = 3 // damage per shot
+    static let hullPickupCap = 5
 
     // the bore: a hexagonal transit tube. The roofline is the surface and
     // carries no rail; five rails sit at the five wall centers.
@@ -73,7 +85,6 @@ enum Tuning {
     // actors, scene points
     static let podSize = CGSize(width: 28, height: 16)
     static let skimmerSize = CGSize(width: 44, height: 20)
-    static let passRingRadius: CGFloat = 28
     static let junkScaleMin: CGFloat = 0.8 // debris size spread around its art size
     static let junkScaleMax: CGFloat = 1.6
     static let junkSpawnSeconds = 2.4
@@ -90,10 +101,15 @@ enum Tuning {
 
     // terrain dressing: positions and shapes are art
     static let moundSpots: [(x: CGFloat, rx: CGFloat, ry: CGFloat)] = [
-        (40, 14, 5), (96, 9, 4), (430, 12, 5), (486, 8, 3),
+        (16, 10, 4), (40, 14, 5), (96, 9, 4), (120, 7, 3),
+        (392, 9, 4), (430, 12, 5), (470, 10, 4), (486, 8, 3),
     ]
     static let craterSpots: [(x: CGFloat, rx: CGFloat, ry: CGFloat)] = [
-        (70, 7, 2.5), (450, 6, 2.0),
+        (70, 7, 2.5), (100, 5, 1.8), (420, 7, 2.2), (450, 6, 2.0),
+    ]
+    static let boulderSpots: [(x: CGFloat, y: CGFloat, rx: CGFloat, ry: CGFloat)] = [
+        (70, 270, 7, 4), (440, 265, 8, 5), (24, 255, 5, 3),
+        (200, 18, 6, 4), (320, 15, 5, 3),
     ]
     static let craterDropY: CGFloat = 6
     static let speckleCount = 42
@@ -134,8 +150,23 @@ enum Tuning {
     static let joltInSeconds = 0.05
     static let joltOutSeconds = 0.08
     static let sparkRadius: CGFloat = 10
-    static let passRingMinScale: CGFloat = 0.6
     static let strokeWidth: CGFloat = 1.5
+
+    // grunge and grit
+    static let grungeCount = 36
+    static let grungeAlpha: CGFloat = 0.18
+    static let earthHaloRadius: CGFloat = 52
+    static let earthHaloWidth: CGFloat = 8
+    static let earthHaloAlpha: CGFloat = 0.5
+    static let glassSlashDepths: [Double] = [0.25, 0.45, 0.65, 0.85]
+    static let glassSlashSpan = 0.15 // depth skew that angles each slash
+    static let glassSlashAlpha: CGFloat = 0.12
+
+    // scores and popups
+    static let scoreFontSize: CGFloat = 11
+    static let scoreInset: CGFloat = 10
+    static let popupRise: CGFloat = 18
+    static let popupSeconds = 0.7
 
     // the filled tube: flat-shaded panel bands falling into depth fog,
     // with light strips running the rails. Seam lines sweep past.
@@ -156,10 +187,11 @@ enum Tuning {
     static let lightRingWidth: CGFloat = 2.5
     static let lightRingAlphaBase: CGFloat = 0.2
     static let lightRingAlphaGain: CGFloat = 0.8
-    static let stationIntervalSeconds = 11.0
-    static let stationSlabSize = CGSize(width: 64, height: 8)
-    static let stationWindowSize = CGSize(width: 52, height: 3)
-    static let stationSignSize = CGSize(width: 10, height: 4)
+    static let stationFirstSeconds = 3.0
+    static let stationIntervalSeconds = 9.0
+    static let stationSlabSize = CGSize(width: 80, height: 10)
+    static let stationWindowSize = CGSize(width: 64, height: 4)
+    static let stationSignSize = CGSize(width: 12, height: 5)
 
     // the glass canopy over the roof slot, and the HUD projected on it
     static let glassBandHeight: CGFloat = 12

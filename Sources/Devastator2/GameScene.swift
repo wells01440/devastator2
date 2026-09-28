@@ -60,6 +60,23 @@ final class GameScene: SKScene {
         var depth: Double
     }
 
+    private struct Bolt {
+        let node: SKShapeNode
+        let t: CGFloat
+        var depth: Double
+    }
+
+    private enum PickupKind {
+        case gun, shield
+    }
+
+    private struct Pickup {
+        let node: SKSpriteNode
+        let kind: PickupKind
+        let rail: Int
+        var depth: Double
+    }
+
     // MARK: state
 
     private var held = Set<UInt16>()
@@ -73,7 +90,6 @@ final class GameScene: SKScene {
     private let farSight = SKShapeNode()
     private let mouth = SKShapeNode()
     private let skimmer = SKSpriteNode()
-    private let passRing = SKShapeNode(circleOfRadius: Tuning.passRingRadius)
     private var railGlows: [SKShapeNode] = []
     private var railStrips: [SKShapeNode] = []
     private var stripes: [SKShapeNode] = []
@@ -84,6 +100,16 @@ final class GameScene: SKScene {
     private var stationCountdown: TimeInterval = 0
     private let launchLabel = SKLabelNode()
     private var hullPips: [SKSpriteNode] = []
+    private var gunPips: [SKSpriteNode] = []
+    private let p1ScoreLabel = SKLabelNode()
+    private let p2ScoreLabel = SKLabelNode()
+    private var bolts: [Bolt] = []
+    private var pickups: [Pickup] = []
+    private var pickupCountdown: TimeInterval = 0
+    private var shootCountdown: TimeInterval = 0
+    private var gunLevel = 1
+    private var skimmerHp = Tuning.skimmerHitsToKill
+    private var score = 0
 
     private var walls: [Wall] = []
     private var perimeterLength: CGFloat = 0
@@ -255,6 +281,8 @@ final class GameScene: SKScene {
         railedIndex = Tuning.railCount / 2
         podRotation = walls[Tuning.railCount / 2].rotation
         junkSpawnCountdown = Tuning.junkSpawnSeconds
+        stationCountdown = Tuning.stationFirstSeconds
+        pickupCountdown = Tuning.pickupFirstSeconds
         spawnSkimmer()
     }
 
@@ -272,7 +300,16 @@ final class GameScene: SKScene {
             addChild(star)
         }
 
-        // Earthrise over the open roofline, limb behind the surface
+        // Earthrise over the open roofline, limb behind the surface, wrapped
+        // in an atmosphere halo
+        let halo = SKShapeNode(circleOfRadius: Tuning.earthHaloRadius)
+        halo.position = CGPoint(x: Tuning.earthX, y: Tuning.earthY)
+        halo.strokeColor = Palette.earthAtmos
+        halo.glowWidth = Tuning.earthHaloWidth
+        halo.lineWidth = Tuning.strokeWidth
+        halo.blendMode = .add
+        halo.alpha = Tuning.earthHaloAlpha
+        addChild(halo)
         let earth = SKSpriteNode(texture: Sprites.earth)
         earth.size = Tuning.earthSize
         earth.position = CGPoint(x: Tuning.earthX, y: Tuning.earthY)
@@ -302,6 +339,16 @@ final class GameScene: SKScene {
             fleck.position = CGPoint(x: x, y: y)
             addChild(fleck)
             speckled += 1
+        }
+        // boulders in the regolith
+        for spot in Tuning.boulderSpots {
+            let boulder = SKShapeNode(ellipseOf: CGSize(width: spot.rx * 2,
+                                                        height: spot.ry * 2))
+            boulder.position = CGPoint(x: spot.x, y: spot.y)
+            boulder.fillColor = Palette.rockSlopeShade
+            boulder.strokeColor = Palette.edgeLight
+            boulder.lineWidth = Tuning.strokeWidth / 2
+            addChild(boulder)
         }
         // and the ones who dug here before us
         for spot in Tuning.skeletonSpots {
@@ -348,6 +395,25 @@ final class GameScene: SKScene {
                 panel.strokeColor = .clear
                 addChild(panel)
             }
+        }
+
+        // grunge on the panels: scuffs and stains down the bore
+        for i in 0..<Tuning.grungeCount {
+            let t = CGFloat((Double(i) * 0.61803).truncatingRemainder(dividingBy: 1))
+            let d = 0.15 + 0.75 * (Double(i) * 0.38197).truncatingRemainder(dividingBy: 1)
+            let frame = wallFrame(at: t)
+            let mark = SKSpriteNode(color: i % 2 == 0 ? Palette.dirtDark
+                                                      : Palette.dirtLight,
+                                    size: CGSize(width: Tuning.speckleSizes[i % 4] + 2,
+                                                 height: Tuning.speckleSizes[i % 4]))
+            let anchor = CGPoint(x: frame.point.x + frame.wall.normal.dx * 2,
+                                 y: frame.point.y + frame.wall.normal.dy * 2)
+            let (p, f) = projectPoint(anchor, d)
+            mark.position = p
+            mark.setScale(f)
+            mark.zRotation = frame.wall.rotation
+            mark.alpha = Tuning.grungeAlpha
+            addChild(mark)
         }
 
         // light strips running each rail from the near arc into the mouth
@@ -521,6 +587,29 @@ final class GameScene: SKScene {
             addChild(pip)
             hullPips.append(pip)
         }
+        for i in 0..<Tuning.gunLevelMax {
+            let pip = SKSpriteNode(color: Palette.hazard, size: Tuning.hudPipSize)
+            pip.position = CGPoint(
+                x: v[5].x - Tuning.hudPipGap - Tuning.hudPipSize.width / 2
+                    - CGFloat(i) * (Tuning.hudPipSize.width + Tuning.hudPipGap),
+                y: Tuning.hexTopY - Tuning.glassBandHeight / 2)
+            pip.zPosition = 3
+            addChild(pip)
+            gunPips.append(pip)
+        }
+
+        // glass slashes down the glazed roof, angled across the sheet
+        for d in Tuning.glassSlashDepths {
+            let slash = SKShapeNode()
+            let sp = CGMutablePath()
+            sp.move(to: projectPoint(v[0], d).point)
+            sp.addLine(to: projectPoint(v[5], d + Tuning.glassSlashSpan).point)
+            slash.path = sp
+            slash.strokeColor = Palette.ufoGlint
+            slash.lineWidth = Tuning.strokeWidth
+            slash.alpha = Tuning.glassSlashAlpha
+            addChild(slash)
+        }
 
         // the far mouth: the exit the quarry is running for
         let mouthPath = CGMutablePath()
@@ -623,10 +712,23 @@ final class GameScene: SKScene {
         skimmer.size = Tuning.skimmerSize
         addChild(skimmer)
 
-        passRing.strokeColor = Palette.enemyMarker
-        passRing.fillColor = .clear
-        passRing.lineWidth = Tuning.strokeWidth
-        addChild(passRing)
+        // the P1 and P2 score readouts, bottom corners of the dashboard
+        p1ScoreLabel.fontName = "Menlo-Bold"
+        p1ScoreLabel.fontSize = Tuning.scoreFontSize
+        p1ScoreLabel.fontColor = Palette.podEngine
+        p1ScoreLabel.horizontalAlignmentMode = .left
+        p1ScoreLabel.position = CGPoint(x: Tuning.scoreInset, y: Tuning.scoreInset)
+        p1ScoreLabel.zPosition = 3
+        addChild(p1ScoreLabel)
+        p2ScoreLabel.fontName = "Menlo-Bold"
+        p2ScoreLabel.fontSize = Tuning.scoreFontSize
+        p2ScoreLabel.fontColor = Palette.podHullDark
+        p2ScoreLabel.horizontalAlignmentMode = .right
+        p2ScoreLabel.position = CGPoint(x: size.width - Tuning.scoreInset,
+                                        y: Tuning.scoreInset)
+        p2ScoreLabel.zPosition = 3
+        p2ScoreLabel.text = "P2 ------"
+        addChild(p2ScoreLabel)
 
         // the sight: your firing line, always on, brighter with a target
         sightBeam.strokeColor = Palette.reticle
@@ -672,6 +774,8 @@ final class GameScene: SKScene {
         stepStations(worldDt)
         stepJunk(worldDt)
         stepSkimmer(worldDt)
+        stepBolts(worldDt)
+        stepPickups(worldDt)
         stepSight()
         stepHud()
     }
@@ -727,7 +831,7 @@ final class GameScene: SKScene {
                                 y: Tuning.stationSlabSize.height * 2)
         node.addChild(sign)
         addChild(node)
-        let wall = [1, 2, 3].randomElement() ?? 2
+        let wall = Int.random(in: 0..<Tuning.railCount)
         let shift = (Tuning.stationSlabSize.width / 2 + Tuning.railGlowHalfLength)
             / perimeterLength
         let t = railTs[wall] + (Bool.random() ? shift : -shift)
@@ -750,6 +854,10 @@ final class GameScene: SKScene {
         for (i, pip) in hullPips.enumerated() {
             pip.alpha = i < hull ? 1 : 0.15
         }
+        for (i, pip) in gunPips.enumerated() {
+            pip.alpha = i < gunLevel ? 1 : 0.15
+        }
+        p1ScoreLabel.text = String(format: "P1 %06d", score)
     }
 
     private func stepPod(_ dt: TimeInterval) {
@@ -1014,6 +1122,7 @@ final class GameScene: SKScene {
         stunPod()
         if hull <= 0 {
             hull = Tuning.hullMax
+            gunLevel = 1
             invulnRemaining = Tuning.invulnSeconds
         }
     }
@@ -1064,14 +1173,104 @@ final class GameScene: SKScene {
             hopCountdown -= dt
             if hopCountdown <= 0 { startHop() }
         }
+        // return fire: a rail-gun bolt straight down its lane
+        if hopTarget == nil {
+            shootCountdown -= dt
+            if shootCountdown <= 0 {
+                fireBolt()
+                shootCountdown = Tuning.skimmerShootIntervalSeconds
+                    + .random(in: 0...Tuning.skimmerShootJitterSeconds)
+            }
+        }
         let progress = skimmerElapsed / Tuning.passClockSeconds
         let depth = Tuning.skimmerSpawnDepth * (1 - progress)
-        let f = placeOnWall(skimmer, t: skimmerT, depth: depth,
-                            height: Tuning.skimmerSize.height)
-        passRing.position = skimmer.position
-        let ringScale = Tuning.passRingMinScale
-            + (1 - Tuning.passRingMinScale) * CGFloat(1 - progress)
-        passRing.setScale(ringScale * f)
+        placeOnWall(skimmer, t: skimmerT, depth: depth,
+                    height: Tuning.skimmerSize.height)
+    }
+
+    private var skimmerDepth: Double {
+        Tuning.skimmerSpawnDepth * (1 - skimmerElapsed / Tuning.passClockSeconds)
+    }
+
+    private func fireBolt() {
+        let node = SKShapeNode()
+        node.strokeColor = Palette.enemyEngine
+        node.glowWidth = Tuning.tracerGlowWidth
+        node.lineWidth = Tuning.strokeWidth
+        node.blendMode = .add
+        node.zPosition = 1.6
+        addChild(node)
+        bolts.append(Bolt(node: node, t: railTs[skimmerLane], depth: skimmerDepth))
+    }
+
+    private func stepBolts(_ dt: TimeInterval) {
+        for i in bolts.indices {
+            bolts[i].depth += dt * Tuning.boltDepthPerSecond
+            let bolt = bolts[i]
+            if bolt.depth >= 1 {
+                // a bolt hugs its rail; any air clears it
+                if laneDistance(bolt.t, podT) <= Tuning.laneHitWidth,
+                   podAirRemaining <= 0, bigJump == nil, invulnRemaining <= 0 {
+                    damagePod()
+                }
+                bolt.node.removeFromParent()
+            } else {
+                let frame = wallFrame(at: bolt.t)
+                let anchor = CGPoint(x: frame.point.x + frame.wall.normal.dx * 3,
+                                     y: frame.point.y + frame.wall.normal.dy * 3)
+                let head = projectPoint(anchor, bolt.depth).point
+                let tail = projectPoint(anchor, min(1, bolt.depth + 0.05)).point
+                let path = CGMutablePath()
+                path.move(to: head)
+                path.addLine(to: tail)
+                bolt.node.path = path
+            }
+        }
+        bolts.removeAll { $0.depth >= 1 }
+    }
+
+    // level-ups ride the lanes; be there, on the ground, when they arrive
+    private func stepPickups(_ dt: TimeInterval) {
+        pickupCountdown -= dt
+        if pickupCountdown <= 0 {
+            spawnPickup()
+            pickupCountdown = Tuning.pickupIntervalSeconds
+        }
+        for i in pickups.indices {
+            pickups[i].depth += dt * Tuning.trackScrollPerSecond * forwardScale
+            let pickup = pickups[i]
+            if pickup.depth >= 1 {
+                let reach = (Tuning.pickupSize.width + Tuning.podSize.width) / 2
+                if laneDistance(railTs[pickup.rail], podT) < reach,
+                   podAirRemaining <= 0, bigJump == nil {
+                    collect(pickup.kind)
+                    spark(at: pickup.node.position, radius: Tuning.sparkRadius)
+                }
+                pickup.node.removeFromParent()
+            } else {
+                placeOnWall(pickup.node, t: railTs[pickup.rail], depth: pickup.depth,
+                            height: Tuning.pickupSize.height)
+            }
+        }
+        pickups.removeAll { $0.depth >= 1 }
+    }
+
+    private func spawnPickup() {
+        let kind: PickupKind = Bool.random() ? .gun : .shield
+        let node = SKSpriteNode(texture: kind == .gun ? Sprites.gunChip
+                                                      : Sprites.shieldChip)
+        node.size = Tuning.pickupSize
+        node.zPosition = 1.4
+        addChild(node)
+        pickups.append(Pickup(node: node, kind: kind,
+                              rail: Int.random(in: 0..<Tuning.railCount), depth: 0))
+    }
+
+    private func collect(_ kind: PickupKind) {
+        switch kind {
+        case .gun: gunLevel = min(Tuning.gunLevelMax, gunLevel + 1)
+        case .shield: hull = min(Tuning.hullPickupCap, hull + 1)
+        }
     }
 
     private func nextHopDelay() -> TimeInterval {
@@ -1093,24 +1292,61 @@ final class GameScene: SKScene {
         hopCountdown = nextHopDelay()
         skimmerElapsed = 0
         skimmerHasBraked = false
+        skimmerHp = Tuning.skimmerHitsToKill
+        skimmer.removeAllChildren()
+        shootCountdown = Tuning.skimmerShootIntervalSeconds
         skimmerAlive = true
-        let f = placeOnWall(skimmer, t: skimmerT, depth: Tuning.skimmerSpawnDepth,
-                            height: Tuning.skimmerSize.height)
-        passRing.position = skimmer.position
-        passRing.setScale(f)
+        placeOnWall(skimmer, t: skimmerT, depth: Tuning.skimmerSpawnDepth,
+                    height: Tuning.skimmerSize.height)
         skimmer.isHidden = false
-        passRing.isHidden = false
     }
 
     private func despawnSkimmer() {
         skimmerAlive = false
         skimmer.isHidden = true
-        passRing.isHidden = true
         respawnCountdown = Tuning.respawnDelaySeconds
+    }
+
+    // three hits by default; every hit knocks something off
+    private func hitSkimmer(_ damage: Int) {
+        skimmerHp -= damage
+        if skimmerHp <= 0 {
+            killSkimmer()
+            return
+        }
+        skimmerElapsed = max(0, skimmerElapsed - Tuning.skimmerHitKnockbackSeconds)
+        spark(at: skimmer.position, radius: Tuning.sparkRadius)
+        // a piece comes off, and the wound stays on the hull
+        for sign: CGFloat in [-1, 1] {
+            let frag = SKSpriteNode(color: Palette.ufoHullDark, size: Tuning.fragmentSize)
+            frag.position = skimmer.position
+            frag.zPosition = 2.5
+            frag.run(.sequence([
+                .group([.moveBy(x: sign * Tuning.fragmentDistance,
+                                y: Tuning.fragmentDistance / 2,
+                                duration: Tuning.fragmentSeconds),
+                        .fadeOut(withDuration: Tuning.fragmentSeconds)]),
+                .removeFromParent(),
+            ]))
+            addChild(frag)
+        }
+        let scorch = SKSpriteNode(color: Bool.random() ? Palette.junkDark
+                                                       : Palette.enemyEngine,
+                                  size: Tuning.fragmentSize)
+        scorch.position = CGPoint(
+            x: .random(in: -Tuning.skimmerSize.width / 3...Tuning.skimmerSize.width / 3),
+            y: .random(in: -Tuning.skimmerSize.height / 4...Tuning.skimmerSize.height / 4))
+        skimmer.addChild(scorch)
     }
 
     private func killSkimmer() {
         kills += 1
+        let remaining = max(0, Tuning.passClockSeconds - skimmerElapsed)
+        let brink = Tuning.brinkTiers.first { remaining <= $0.secondsLeft }?.multiplier ?? 1
+        let points = Tuning.baseKillScore * brink
+        score += points
+        scorePopup("+\(points)", at: skimmer.position,
+                   color: brink > 1 ? Palette.enemyMarker : Palette.reticle)
         spark(at: skimmer.position, radius: Tuning.laneHitWidth / 2)
         for i in 0..<Tuning.fragmentCount {
             let frag = SKSpriteNode(color: Palette.enemyEngine, size: Tuning.fragmentSize)
@@ -1191,7 +1427,22 @@ final class GameScene: SKScene {
             piece.node.removeFromParent()
         }
         junkPieces.removeAll { laneDistance(railTs[$0.rail], podT) <= Tuning.laneHitWidth }
-        if skimmerInLine { killSkimmer() }
+        if skimmerInLine { hitSkimmer(gunLevel) }
+    }
+
+    private func scorePopup(_ text: String, at point: CGPoint, color: SKColor) {
+        let label = SKLabelNode(text: text)
+        label.fontName = "Menlo-Bold"
+        label.fontSize = Tuning.scoreFontSize
+        label.fontColor = color
+        label.position = point
+        label.zPosition = 3
+        addChild(label)
+        label.run(.sequence([
+            .group([.moveBy(x: 0, y: Tuning.popupRise, duration: Tuning.popupSeconds),
+                    .fadeOut(withDuration: Tuning.popupSeconds)]),
+            .removeFromParent(),
+        ]))
     }
 
     // MARK: input

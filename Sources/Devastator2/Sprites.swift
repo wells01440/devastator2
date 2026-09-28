@@ -84,6 +84,41 @@ enum Sprites {
         "E": Palette.enemyEngine,
     ])
 
+    // level-up chips riding the lanes: catch them, unlike the junk
+    static let gunChip = texture([
+        ".KKKKKKKKKK.",
+        "KJJJJJJJJJJK",
+        "KJJJJJYYJJJK",
+        "KJJJJYYJJJJK",
+        "KJJJYYYYYJJK",
+        "KJJJJJYYJJJK",
+        "KJJJJYYJJJJK",
+        "KJJJJYJJJJJK",
+        "KJJJJJJJJJJK",
+        ".KKKKKKKKKK.",
+    ], [
+        "K": Palette.junkLight,
+        "J": Palette.junkDark,
+        "Y": Palette.hazard,
+    ])
+
+    static let shieldChip = texture([
+        ".KKKKKKKKKK.",
+        "KJJJJJJJJJJK",
+        "KJJJSSSSJJJK",
+        "KJJSSSSSSJJK",
+        "KJJSSSSSSJJK",
+        "KJJSSSSSSJJK",
+        "KJJJSSSSJJJK",
+        "KJJJJSSJJJJK",
+        "KJJJJJJJJJJK",
+        ".KKKKKKKKKK.",
+    ], [
+        "K": Palette.junkLight,
+        "J": Palette.junkDark,
+        "S": Palette.shieldGreen,
+    ])
+
     // buried in the dirt, Dig Dug style
     static let skeleton = texture([
         "...BBBB.....",

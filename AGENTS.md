@@ -76,10 +76,17 @@ stops slide past (platform, window band, lit sign,
 Tuning.stationIntervalSeconds); the roof slot got its glass canopy (a
 glazed sheet down the tube plus a near band with glints — cut-scene
 real estate) with the HUD projected on it: LAUNCH T-x.x going red
-inside Tuning.hudUrgentSeconds, and hull pips. Remaining passes,
-roughly in order: brink-time danger reddening, level palette themes,
-cut-scene beats, the sound pass (music per Assets/Music/MANIFEST.md,
-slo-mo whoosh, notch clicks), pads via GameController.
+inside Tuning.hudUrgentSeconds, and hull pips. Pass 7 (done): combat
+depth and grit — three-hit UFO with fly-off fragments and hull
+scorches, rail-gun return fire, gun/shield pickup chips on the lanes,
+P1/P2 scores with brink-multiplied kill popups, gun pips on the glass
+opposite the hull pips, glass slashes down the glazed roof, stations
+on all five rails from Tuning.stationFirstSeconds, panel grunge down
+the bore, regolith boulders, more mounds and craters, and an
+atmosphere halo on the Earthrise. Remaining passes, roughly in order:
+brink-time danger reddening, level palette themes, cut-scene beats,
+the sound pass (music per Assets/Music/MANIFEST.md, slo-mo whoosh,
+notch clicks), pads via GameController.
 
 Controls: left/right move around the ring, space fires down the tube,
 double-tap up jumps, Q quits. Release near a rail to click in; pull
@@ -126,7 +133,19 @@ grey-box outcome — "aiming should be side to side only"):
 - The chase: the UFO spawns close ahead (skimmerSpawnDepth), rides
   rails, hops adjacent lanes, and runs for the far mouth. Clock out =
   kablammo: sky flash, a pass. Mercy brake once per racer when passes
-  exceed kills.
+  exceed kills. It takes Tuning.skimmerHitsToKill hits; each hit
+  staggers the getaway (skimmerHitKnockbackSeconds), knocks fragments
+  off, and leaves a scorch on the hull. The escape-clock ring is gone;
+  LAUNCH T- on the glass is the clock.
+- Return fire: the UFO shoots a rail-gun bolt straight down its own
+  lane (skimmerShootIntervalSeconds + jitter, boltDepthPerSecond).
+  Sharing its lane is the duel: both can hit. Any air clears a bolt.
+- Level-ups ride the lanes like junk and are caught on the ground:
+  gun chips raise damage per shot to Tuning.gunLevelMax; shield chips
+  raise hull to Tuning.hullPickupCap. Hull empty resets hull AND gun.
+- Scoring: kills pay baseKillScore times the brink multiplier from
+  Tuning.brinkTiers on the launch clock; popup at the kill. P1 score
+  sits bottom-left, P2 placeholder bottom-right (2P pending).
 - Junk sits on lanes only, closes at your forward speed (doubled
   railed), stuns on contact (controls cut, hard gravity to the floor
   rail, fire disabled) and derails; jump it, shoot it, or wear it.
