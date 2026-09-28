@@ -68,10 +68,18 @@ FILLED: flat-shaded panel bands per wall falling into depth fog
 walls, additive light strips running each rail into the mouth
 (brighter under the seated pod), the wireframe lane rays deleted, seam
 lines dimmed to segment joints, the mouth softly filled. Surfaces,
-not edges. Remaining passes, roughly in order: brink-time danger
-reddening, level palette themes, diegetic score/state readouts,
-cut-scene beats, music through AVAudioEngine per
-Assets/Music/MANIFEST.md, pads via GameController.
+not edges. Pass 6 (done): working resolution doubled where it counts —
+pod and UFO redrawn at one scene point per art pixel, junk replaced
+with big detailed hazard-striped wrecks (transit car, downed saucer,
+girder tangle); bright light-ring fixtures sweep the tube; station
+stops slide past (platform, window band, lit sign,
+Tuning.stationIntervalSeconds); the roof slot got its glass canopy (a
+glazed sheet down the tube plus a near band with glints — cut-scene
+real estate) with the HUD projected on it: LAUNCH T-x.x going red
+inside Tuning.hudUrgentSeconds, and hull pips. Remaining passes,
+roughly in order: brink-time danger reddening, level palette themes,
+cut-scene beats, the sound pass (music per Assets/Music/MANIFEST.md,
+slo-mo whoosh, notch clicks), pads via GameController.
 
 Controls: left/right move around the ring, space fires down the tube,
 double-tap up jumps, Q quits. Release near a rail to click in; pull
