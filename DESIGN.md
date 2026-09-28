@@ -52,15 +52,22 @@ spawns ride the soundtrack's beat grid.
 
 A second gun pod rides the Groove in every game. In solo play it is an
 AI wingman; in co-op, player 2 takes it over — same game, no separate
-mode.
+mode. Co-op IS the two-player mode (W); the original's asymmetric duel
+retires.
 
 - The buddy covers the lane your aim left, intercepts thrown junk, and
   finishes staggered sky-band escapees. It never takes brink-window
   kills; the score plays are yours.
+- Buddy AI is adaptive (W): it reads pass rate, shield losses, and
+  chain level, and sharpens when the player struggles, hangs back when
+  the player dominates. The target is the old coin-op operator rule (W:
+  two minutes out of a quarter) — a first credit should always last a
+  respectable run, and the buddy is the throttle that makes it so.
 - The buddy has its own life, stun, and pickups, and its own chain in
   co-op. Earth's shields and the level are shared.
-- Two pods on one U also means two bodies to route around each other —
-  crossing aims swap your pods' positions with a small scramble cost.
+- No routing rules between the two pods: they soft-bump and pass, and
+  gravity's pull to center resolves crossings on its own (W: swap
+  mechanic cut as fiddly).
 
 ## Movement: aim-led pod with lunar gravity (W)
 
@@ -80,14 +87,24 @@ Pickups spawn on the soundtrack's beat grid (W) along the racing line.
 Both sides can take them — enemies grab pickups too, and you can see
 them do it. Denying a pickup is a reason to be somewhere.
 
+One general model — beat-grid spawn, contact trigger, either side can
+claim — then as many types as the game wants (W: once the model exists,
+get crazy with it).
+
+Core set:
 - Turbo (W): a short burst where the pod accelerates and contact kills —
   the ram mechanic without a ram button. During turbo the pod shrugs
   off junk. Ramming a Shell staggers it instead of killing.
 - Armor: grows the pod's life bar (W). A racer that grabs armor carries
   it into the sky band — you watched it get tougher, so you know what
   the escape will cost (W: armor by pickups, same principle).
-- No new controls; pickups trigger on contact, so the button budget
-  stays intact (W).
+
+Novelty tier (W: easter eggs — sheep, tomahawks, whatever): rare,
+beat-spawned oddities with one-off effects. Pure delight budget; none
+may be required for progression.
+
+No new controls; pickups trigger on contact, so the button budget stays
+intact (W).
 
 ## Enemies (W: smarter than bouncing)
 
@@ -178,8 +195,8 @@ drafting wobble when a racer slipstreams the pace pod, position-style
 callouts when one crosses half-track. Contested pickups on the racing
 line carry most of this feeling.
 
-A pure race mode — first to the far gate against the pack — is parked as
-a post-credits unlock idea, not core (W: maybe, don't get complex).
+Race mode — first to the far gate against the pack — unlocks by beating
+level 10 (W). Campaign first, podracer as the prize.
 
 ## Look (W: Nintendo DS era)
 
@@ -235,13 +252,12 @@ feels right. Everything else hangs off that feel.
 Gamepads via the GameController framework: left stick aim, right
 trigger fire, left trigger DEVASTATOR. Co-op strongly prefers pads.
 
-## Open questions for conversation
+## Design state
 
-1. Buddy AI tuning: how good is too good — does it ever miss on
-   purpose?
-2. The original's asymmetric duel (P2 flies a racer): keep as a third
-   mode, or let co-op replace it?
-3. A firepower pickup (strip armor faster): third pickup type, or is
-   two enough?
-4. Post-credits: endless grand prix, the race mode, both, neither?
-5. Cross-aim pod swap in co-op: fun or fiddly? Needs the grey-box test.
+Core design is settled. What remains is tuning, and tuning belongs to
+the prototype, not the page: aim-follow lag, gravity strength, brink
+window widths, buddy AI thresholds, pickup rates, armor values.
+
+Next step: the grey-box. Swift + SpriteKit, one trench, aim-led pod,
+gravity recenter, one Skimmer, the 10-second clock. It answers the only
+question the doc cannot: does aim-as-movement feel good.
