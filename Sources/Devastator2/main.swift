@@ -25,6 +25,7 @@ let window = NSWindow(
 window.title = "Devastator 2"
 window.contentView = view
 window.center()
+window.makeFirstResponder(view)
 window.makeKeyAndOrderFront(nil)
 app.activate(ignoringOtherApps: true)
 app.run()

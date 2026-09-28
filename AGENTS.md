@@ -7,8 +7,10 @@ raise conflicts with the owner instead.
 
 ## State
 
-Skeleton only. The app builds and opens a window with a placeholder
-scene. No gameplay exists yet.
+Grey-box playable. All six milestone steps are in: flat U trench, aim-led
+pod with gravity recenter, one weaving Skimmer with a shrinking pass
+ring, space to fire, one obstacle the aim routes over. The owner's feel
+pass is next; expect Tuning churn.
 
 ## Layout
 
@@ -17,7 +19,7 @@ scene. No gameplay exists yet.
 | DESIGN.md | the gameplay spec, settled through four design rounds |
 | Package.swift | SPM executable target, macOS 13+ |
 | Sources/Devastator2/main.swift | AppKit bootstrap: window + SKView |
-| Sources/Devastator2/GameScene.swift | the scene; placeholder |
+| Sources/Devastator2/GameScene.swift | the grey-box scene; disposable |
 | Sources/Devastator2/Tuning.swift | every gameplay number; nothing numeric hides elsewhere |
 | Assets/Music/ | 12 curated tracks + MANIFEST.md; not bundled yet |
 
@@ -31,28 +33,30 @@ scene. No gameplay exists yet.
   only to that repo. The original's sprite bytes (for homage quotes like
   the Earth-shatter frames) are in ../devastator/Devastator/GameData.incl.
 
-## Next milestone: the grey-box
+## Current milestone: the feel pass
 
-Purpose: answer whether aim-as-movement feels good. Nothing ships from
-it. Scope, in order:
+The grey-box answers whether aim-as-movement feels good. Nothing ships
+from it. `swift run`: arrows move the crosshair, the pod chases its
+horizontal position along the U, gravity recenters both when input is
+idle. Space fires; a hit needs the crosshair on the Skimmer. The
+obstacle blocks the pod unless the aim is above it by
+Tuning.obstacleClearance, which routes the pod over the top. The clock
+expiring counts a pass and flashes the sky band. Q quits. The debug
+line bottom-left shows kills, passes, and the pass clock.
 
-1. The U trench in grey boxes: a horizontal band for the sky, a U
-   profile for the track, drawn flat (pseudo-3D row scaling comes
-   later).
-2. Crosshair moved by arrows; pod chases the crosshair's horizontal
-   position along the U with Tuning.aimFollowLag; gravity eases both
-   toward center at Tuning.gravityRecenterPerSecond when idle.
-3. One Skimmer: enters at the far end, races toward the near end,
-   gentle weave, tries to pass.
-4. The 10-second pass clock as a shrinking ring on the Skimmer.
-5. Space fires; a hit needs the crosshair on the Skimmer; kill resets
-   the spawn.
-6. One fixed obstacle in the trench that the pod bumps against.
+The flat reading of the trench: the U is the near cross-section, the
+Skimmer descends from the rim (far) to the track surface (near) over
+Tuning.passClockSeconds. Pseudo-3D row scaling replaces this later.
 
-Rules for the milestone: every constant goes in Tuning.swift; keep the
-scene tree flat and disposable; no music, no art, no score display
-beyond a debug line. When it runs, the owner plays it and the feel
-conversation starts — expect Tuning values to churn.
+Feel candidates for the pass: aimFollowLag, gravityRecenterPerSecond,
+crosshairSpeed, hitRadius, skimmerWeaveAmplitude, skimmerWeaveHz.
+
+Rules while the grey-box lives: every constant goes in Tuning.swift;
+keep the scene tree flat and disposable; no music, no art, no score
+display beyond the debug line.
+
+After the feel pass: pseudo-3D row scaling, scoring with brink tiers,
+more racer types.
 
 ## Conventions
 
