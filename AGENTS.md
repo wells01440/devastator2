@@ -61,13 +61,21 @@ urgency — three streamer layers pour out of the vanishing point at
 forward speed (surface craters on the cap band fastest, wall streaks,
 additive rail pulses fastest of all as energy), the pod rumbles and
 its engine flickers while railed, and the depth stripes thickened.
-Railing doubles the whole world's rush through forwardScale. Remaining
-passes, roughly in order: brink-time danger reddening, level palette
-themes, diegetic score/state readouts, cut-scene beats, music through
-AVAudioEngine per Assets/Music/MANIFEST.md, pads via GameController.
+Railing doubles the whole world's rush through forwardScale. Pass 5
+(done): the era jump from 80s wireframe to 2010 DS — the tube is
+FILLED: flat-shaded panel bands per wall falling into depth fog
+(Tuning.tubeBandCount, fogStrength), earthlight bias on the left
+walls, additive light strips running each rail into the mouth
+(brighter under the seated pod), the wireframe lane rays deleted, seam
+lines dimmed to segment joints, the mouth softly filled. Surfaces,
+not edges. Remaining passes, roughly in order: brink-time danger
+reddening, level palette themes, diegetic score/state readouts,
+cut-scene beats, music through AVAudioEngine per
+Assets/Music/MANIFEST.md, pads via GameController.
 
 Controls: left/right move around the ring, space fires down the tube,
-double-tap up hops, double-tap down spikes in or clunks off, Q quits.
+double-tap up jumps, Q quits. Release near a rail to click in; pull
+and hold to pop out. That is the whole scheme.
 
 Settled gameplay (the TUBE model, the owner's revision of the
 grey-box outcome — "aiming should be side to side only"):
@@ -90,10 +98,10 @@ grey-box outcome — "aiming should be side to side only"):
   clock at railClockScale) and steady. A sustained directional pull
   pops the notch (Tuning.railStickSeconds); coasting between rails is
   slow. notchCooldownSeconds prevents an instant re-click.
-- The hop pair survives intact: double-tap up jumps arriving junk;
-  double-tap down spikes into the nearest rail with a hard brake
-  (brakeSeconds/brakeScrollScale/brakeEscapeScale) or, seated, clunks
-  off.
+- The hop: double-tap up jumps. Clearance is the jump arc against the
+  wreck's height (Tuning.junkClearanceFactor): small bits clear almost
+  anywhere in the arc, big wreckage needs the top of the jump. The
+  double-down spike is CUT (owner: simpler play); down does nothing.
 - The shot goes straight down the tube to the end and owns
   Tuning.laneHitWidth of the ring: every junk piece in the line dies,
   and the UFO dies if its perimeter position is in the line, mid-hop
@@ -105,9 +113,8 @@ grey-box outcome — "aiming should be side to side only"):
   kablammo: sky flash, a pass. Mercy brake once per racer when passes
   exceed kills.
 - Junk sits on lanes only, closes at your forward speed (doubled
-  railed, halved braking), stuns on contact (controls cut, hard
-  gravity to the floor rail, fire disabled) and derails; hop over it,
-  shoot it, or wear it.
+  railed), stuns on contact (controls cut, hard gravity to the floor
+  rail, fire disabled) and derails; jump it, shoot it, or wear it.
 - Two-player intent: both pods ride the same ring, offset front to
   back a little, so side-to-side movement does not collide. The buddy
   pod renders at a slightly farther depth when built.

@@ -41,12 +41,11 @@ enum Tuning {
     static let notchCooldownSeconds = 0.4 // no instant re-click after popping out
     static let railDoubleTapSeconds = 0.3
 
-    // the hop pair: double-up jumps junk, double-down spikes into a rail
+    // the hop: double-up jumps junk. Clearance is the arc against the
+    // wreck's height, so bigger junk needs the top of the jump.
     static let podHopSeconds = 0.45
     static let podHopHeight: CGFloat = 26
-    static let brakeSeconds = 0.8 // the cost of a spike lock
-    static let brakeScrollScale = 0.5 // forward speed while braking
-    static let brakeEscapeScale = 1.5 // the quarry gains while you brake
+    static let junkClearanceFactor: CGFloat = 1.0
 
     // the quarry: rides the rails and runs for the far mouth
     static let skimmerSpawnDepth = 0.85 // how close ahead it starts
@@ -70,7 +69,7 @@ enum Tuning {
     static let skimmerSize = CGSize(width: 44, height: 20)
     static let passRingRadius: CGFloat = 28
     static let junkScaleMin: CGFloat = 0.7 // debris size spread around its art size
-    static let junkScaleMax: CGFloat = 1.4
+    static let junkScaleMax: CGFloat = 1.8
     static let junkSpawnSeconds = 2.4
     static let respawnDelaySeconds = 0.6
 
@@ -125,12 +124,22 @@ enum Tuning {
     static let joltInSeconds = 0.05
     static let joltOutSeconds = 0.08
     static let sparkRadius: CGFloat = 10
-    static let laneLineAlpha: CGFloat = 0.22
     static let passRingMinScale: CGFloat = 0.6
     static let strokeWidth: CGFloat = 1.5
-    static let stripeCount = 9
-    static let stripeAlphaBase: CGFloat = 0.12
-    static let stripeAlphaGain: CGFloat = 0.34
+
+    // the filled tube: flat-shaded panel bands falling into depth fog,
+    // with light strips running the rails. Seam lines sweep past.
+    static let tubeBandCount = 8
+    static let fogStrength: CGFloat = 0.85
+    static let lightBiasLeft: CGFloat = 1.12 // earthlight through the roof slot
+    static let lightBiasRight: CGFloat = 0.92
+    static let railStripHalfWidth: CGFloat = 8
+    static let railStripAlphaIdle: CGFloat = 0.10
+    static let railStripAlphaHot: CGFloat = 0.28
+    static let mouthFillAlpha: CGFloat = 0.10
+    static let stripeCount = 5
+    static let stripeAlphaBase: CGFloat = 0.05
+    static let stripeAlphaGain: CGFloat = 0.18
 
     // the sight: your firing line down the tube, and the far mouth it ends at
     static let sightAlphaIdle: CGFloat = 0.12

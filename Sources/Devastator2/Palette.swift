@@ -8,8 +8,13 @@ enum Palette {
     static let star = SKColor(red: 0.85, green: 0.87, blue: 0.95, alpha: 1)
     static let horizonGlow = SKColor(red: 0.45, green: 0.48, blue: 0.60, alpha: 1)
 
-    // the slot
+    // the bore: engineered transit-tube panels, lit from the open roof
     static let trenchAir = SKColor(red: 0.05, green: 0.05, blue: 0.10, alpha: 1)
+    static let depthFog = SKColor(red: 0.02, green: 0.02, blue: 0.06, alpha: 1)
+    static let floorPanel = SKColor(red: 0.30, green: 0.33, blue: 0.42, alpha: 1)
+    static let lowerPanel = SKColor(red: 0.24, green: 0.26, blue: 0.34, alpha: 1)
+    static let upperPanel = SKColor(red: 0.17, green: 0.19, blue: 0.26, alpha: 1)
+    static let mouthLight = SKColor(red: 0.40, green: 0.80, blue: 1.0, alpha: 1)
     static let rockBody = SKColor(red: 0.16, green: 0.17, blue: 0.21, alpha: 1)
     static let dirtLight = SKColor(red: 0.22, green: 0.23, blue: 0.27, alpha: 1)
     static let dirtDark = SKColor(red: 0.11, green: 0.12, blue: 0.15, alpha: 1)
@@ -20,7 +25,6 @@ enum Palette {
     static let surface = SKColor(red: 0.38, green: 0.39, blue: 0.45, alpha: 1)
     static let edgeLight = SKColor(red: 0.55, green: 0.57, blue: 0.66, alpha: 1)
     static let stripe = SKColor(red: 0.40, green: 0.44, blue: 0.58, alpha: 1)
-    static let laneLine = SKColor(red: 0.45, green: 0.50, blue: 0.68, alpha: 1)
     static let railHot = SKColor(red: 0.55, green: 0.85, blue: 1.0, alpha: 1)
 
     // actors

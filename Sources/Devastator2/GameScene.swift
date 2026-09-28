@@ -58,6 +58,7 @@ final class GameScene: SKScene {
     private let skimmer = SKSpriteNode()
     private let passRing = SKShapeNode(circleOfRadius: Tuning.passRingRadius)
     private var railGlows: [SKShapeNode] = []
+    private var railStrips: [SKShapeNode] = []
     private var stripes: [SKShapeNode] = []
     private var streamers: [Streamer] = []
 
@@ -70,10 +71,8 @@ final class GameScene: SKScene {
     private var railedIndex: Int?
     private var stickAccum: TimeInterval = 0
     private var notchCooldown: TimeInterval = 0
-    private var lastDownTap: TimeInterval = 0
     private var lastUpTap: TimeInterval = 0
     private var podAirRemaining: TimeInterval = 0
-    private var brakeRemaining: TimeInterval = 0
     private var stunRemaining: TimeInterval = 0
     private var idleSeconds: TimeInterval = 0
     private var stripePhase = 0.0
@@ -97,13 +96,12 @@ final class GameScene: SKScene {
     private var isRailed: Bool { railedIndex != nil }
     private var bottomRailT: CGFloat { railTs[Tuning.railCount / 2] }
 
-    // your forward speed through the tube, and how fast the quarry gains:
-    // braking beats railing beats coasting
+    // your forward speed through the tube, and how fast the quarry gains
     private var forwardScale: Double {
-        brakeRemaining > 0 ? Tuning.brakeScrollScale : isRailed ? Tuning.railScrollScale : 1
+        isRailed ? Tuning.railScrollScale : 1
     }
     private var escapeScale: Double {
-        brakeRemaining > 0 ? Tuning.brakeEscapeScale : isRailed ? Tuning.railClockScale : 1
+        isRailed ? Tuning.railClockScale : 1
     }
 
     // MARK: the bore
@@ -182,6 +180,27 @@ final class GameScene: SKScene {
         let point = CGPoint(x: tubeCenter.x + (near.x - tubeCenter.x) * f,
                             y: tubeCenter.y + (near.y - tubeCenter.y) * f)
         return (point, f)
+    }
+
+    private func scaled(_ p: CGPoint, _ f: CGFloat) -> CGPoint {
+        CGPoint(x: tubeCenter.x + (p.x - tubeCenter.x) * f,
+                y: tubeCenter.y + (p.y - tubeCenter.y) * f)
+    }
+
+    // flat-shaded panel color: the base sinks into depth fog with distance,
+    // biased by which side the earthlight falls on
+    private func shaded(_ base: SKColor, f: CGFloat, bias: CGFloat) -> SKColor {
+        let c = base.usingColorSpace(.deviceRGB) ?? base
+        let fog = Palette.depthFog.usingColorSpace(.deviceRGB) ?? Palette.depthFog
+        let t = (1 - f) * Tuning.fogStrength
+        func channel(_ a: CGFloat, _ b: CGFloat) -> CGFloat {
+            let lit = a * bias
+            return max(0, min(1, lit + (b - lit) * t))
+        }
+        return SKColor(red: channel(c.redComponent, fog.redComponent),
+                       green: channel(c.greenComponent, fog.greenComponent),
+                       blue: channel(c.blueComponent, fog.blueComponent),
+                       alpha: 1)
     }
 
     // screen placement for a sprite riding a wall at perimeter t
@@ -273,10 +292,56 @@ final class GameScene: SKScene {
         hexPath.addLines(between: v)
         hexPath.closeSubpath()
         let interior = SKShapeNode(path: hexPath)
-        interior.fillColor = Palette.trenchAir
+        interior.fillColor = Palette.depthFog
         interior.strokeColor = Palette.edgeLight
         interior.lineWidth = Tuning.strokeWidth
         addChild(interior)
+
+        // the filled tube: flat-shaded panel bands from the near rim down
+        // into the fog at the mouth
+        let panelColors: [SKColor] = [Palette.upperPanel, Palette.lowerPanel,
+                                      Palette.floorPanel,
+                                      Palette.lowerPanel, Palette.upperPanel]
+        let panelBias: [CGFloat] = [Tuning.lightBiasLeft, Tuning.lightBiasLeft, 1,
+                                    Tuning.lightBiasRight, Tuning.lightBiasRight]
+        let bands = Tuning.tubeBandCount
+        let bandFs: [CGFloat] = (0...bands).map {
+            Tuning.farPointScale + (1 - Tuning.farPointScale) * CGFloat($0) / CGFloat(bands)
+        }
+        for k in 0..<bands {
+            let f0 = bandFs[k]
+            let f1 = bandFs[k + 1]
+            for (i, w) in walls.enumerated() {
+                let quad = CGMutablePath()
+                quad.addLines(between: [scaled(w.a, f1), scaled(w.b, f1),
+                                        scaled(w.b, f0), scaled(w.a, f0)])
+                quad.closeSubpath()
+                let panel = SKShapeNode(path: quad)
+                panel.fillColor = shaded(panelColors[i], f: (f0 + f1) / 2,
+                                         bias: panelBias[i])
+                panel.strokeColor = .clear
+                addChild(panel)
+            }
+        }
+
+        // light strips running each rail from the near arc into the mouth
+        for t in railTs {
+            let half = Tuning.railStripHalfWidth / perimeterLength
+            let a = wallFrame(at: t - half).point
+            let b = wallFrame(at: t + half).point
+            let strip = CGMutablePath()
+            strip.addLines(between: [a, b,
+                                     scaled(b, Tuning.farPointScale),
+                                     scaled(a, Tuning.farPointScale)])
+            strip.closeSubpath()
+            let node = SKShapeNode(path: strip)
+            node.fillColor = Palette.railHot
+            node.strokeColor = .clear
+            node.blendMode = .add
+            node.alpha = Tuning.railStripAlphaIdle
+            addChild(node)
+            railStrips.append(node)
+        }
 
         // lit bevels on the five railed walls
         let facetColors: [SKColor] = [Palette.rockSlopeLit, Palette.rockSlopeLit,
@@ -340,19 +405,6 @@ final class GameScene: SKScene {
         skyFlash.alpha = 0
         addChild(skyFlash)
 
-        // lane rays from the far mouth out to each rail
-        for t in railTs {
-            let near = wallFrame(at: t).point
-            let ray = CGMutablePath()
-            ray.move(to: projectPoint(near, 0).point)
-            ray.addLine(to: near)
-            let node = SKShapeNode(path: ray)
-            node.strokeColor = Palette.laneLine
-            node.lineWidth = Tuning.strokeWidth
-            node.alpha = Tuning.laneLineAlpha
-            addChild(node)
-        }
-
         // the hot rails: glow arcs at the five wall centers
         for t in railTs {
             let frame = wallFrame(at: t)
@@ -373,7 +425,7 @@ final class GameScene: SKScene {
             railGlows.append(node)
         }
 
-        // receding open-hex outlines: the bore telescoping away
+        // seam lines between tube segments, sweeping past
         for _ in 0..<Tuning.stripeCount {
             let stripe = SKShapeNode()
             stripe.strokeColor = Palette.stripe
@@ -387,6 +439,7 @@ final class GameScene: SKScene {
         mouthPath.addLines(between: v.map { projectPoint($0, 0).point })
         mouth.path = mouthPath
         mouth.strokeColor = Palette.railHot
+        mouth.fillColor = Palette.mouthLight.withAlphaComponent(Tuning.mouthFillAlpha)
         mouth.glowWidth = Tuning.railGlowWidth
         mouth.lineWidth = Tuning.strokeWidth
         mouth.blendMode = .add
@@ -531,7 +584,6 @@ final class GameScene: SKScene {
     }
 
     private func stepPod(_ dt: TimeInterval) {
-        brakeRemaining = max(0, brakeRemaining - dt)
         podAirRemaining = max(0, podAirRemaining - dt)
         notchCooldown = max(0, notchCooldown - dt)
 
@@ -599,6 +651,8 @@ final class GameScene: SKScene {
         engineGlow.isHidden = !isRailed
         for (i, glow) in railGlows.enumerated() {
             glow.alpha = i == railedIndex ? 1 : Tuning.railIdleAlpha
+            railStrips[i].alpha = i == railedIndex ? Tuning.railStripAlphaHot
+                                                  : Tuning.railStripAlphaIdle
         }
     }
 
@@ -621,27 +675,6 @@ final class GameScene: SKScene {
         stickAccum = 0
         notchCooldown = Tuning.notchCooldownSeconds
         jolt()
-    }
-
-    private func clunkOff() {
-        railedIndex = nil
-        stickAccum = 0
-        notchCooldown = Tuning.notchCooldownSeconds
-        jolt()
-        spark(at: pod.position, radius: Tuning.sparkRadius)
-    }
-
-    // the spike: slam into the nearest rail, pay for it in speed
-    private func slamLock() {
-        guard let i = railTs.indices.min(by: {
-            laneDistance(podT, railTs[$0]) < laneDistance(podT, railTs[$1])
-        }) else { return }
-        railedIndex = i
-        stickAccum = 0
-        podT = railTs[i]
-        brakeRemaining = Tuning.brakeSeconds
-        jolt()
-        spark(at: wallFrame(at: podT).point, radius: Tuning.sparkRadius)
     }
 
     private func podHop() {
@@ -726,9 +759,16 @@ final class GameScene: SKScene {
 
     private func resolveJunkArrival(_ piece: Junk) {
         let reach = (piece.size.width + Tuning.podSize.width) / 2
-        // an airborne pod sails over arriving wreckage
-        if laneDistance(railTs[piece.rail], podT) < reach, podAirRemaining <= 0 {
-            stunPod()
+        if laneDistance(railTs[piece.rail], podT) < reach {
+            // clearance is the jump arc against the wreck: bigger junk needs
+            // the top of the arc
+            var cleared = false
+            if podAirRemaining > 0 {
+                let t = 1 - podAirRemaining / Tuning.podHopSeconds
+                let lift = Tuning.podHopHeight * CGFloat(sin(Double.pi * t))
+                cleared = lift > piece.size.height * Tuning.junkClearanceFactor
+            }
+            if !cleared { stunPod() }
         }
         piece.node.run(.sequence([.fadeOut(withDuration: Tuning.junkFadeSeconds),
                                   .removeFromParent()]))
@@ -920,14 +960,6 @@ final class GameScene: SKScene {
         if event.keyCode == Key.space {
             if !event.isARepeat { fire() }
             return
-        }
-        if event.keyCode == Key.down, !event.isARepeat, stunRemaining <= 0 {
-            if event.timestamp - lastDownTap <= Tuning.railDoubleTapSeconds {
-                // double-down: seated = clunk off; coasting = spike into the
-                // nearest rail, at the cost of a hard brake
-                if isRailed { clunkOff() } else { slamLock() }
-            }
-            lastDownTap = event.timestamp
         }
         if event.keyCode == Key.up, !event.isARepeat, stunRemaining <= 0 {
             if event.timestamp - lastUpTap <= Tuning.railDoubleTapSeconds {
