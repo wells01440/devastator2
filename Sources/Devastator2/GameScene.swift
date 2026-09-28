@@ -19,8 +19,21 @@ final class GameScene: SKScene {
         var progress: Double
     }
 
+    private enum StreamerFlavor {
+        case surface, wall, pulse
+    }
+
+    private struct Streamer {
+        let node: SKNode
+        let flavor: StreamerFlavor
+        var nearX: CGFloat
+        var depth: Double
+    }
+
     private var held = Set<UInt16>()
     private var lastTime: TimeInterval = 0
+    private var worldTime: TimeInterval = 0
+    private var streamers: [Streamer] = []
 
     private let skyFlash = SKSpriteNode()
     private var railGlows: [SKShapeNode] = []
@@ -101,14 +114,17 @@ final class GameScene: SKScene {
     // (trench center at rim height), depth 1 is the player's cross-section.
     // A grounded thing at near-anchor x projects toward the vanishing point
     // and scales with depth: far is small, near is big, nothing flies.
-    private func project(_ nearX: CGFloat, _ depth: Double) -> (point: CGPoint, scale: CGFloat) {
+    private func projectPoint(_ near: CGPoint, _ depth: Double) -> (point: CGPoint, scale: CGFloat) {
         let f = Tuning.farPointScale
             + (1 - Tuning.farPointScale) * CGFloat(pow(depth, Tuning.depthExponent))
         let vp = CGPoint(x: centerX, y: Tuning.trenchRimY)
-        let near = CGPoint(x: nearX, y: trackY(nearX))
         let point = CGPoint(x: vp.x + (near.x - vp.x) * f,
                             y: vp.y + (near.y - vp.y) * f)
         return (point, f)
+    }
+
+    private func project(_ nearX: CGFloat, _ depth: Double) -> (point: CGPoint, scale: CGFloat) {
+        projectPoint(CGPoint(x: nearX, y: trackY(nearX)), depth)
     }
 
     // screen position for a grounded sprite of the given full height
@@ -124,6 +140,7 @@ final class GameScene: SKScene {
     override func didMove(to view: SKView) {
         backgroundColor = Palette.space
         buildTrench()
+        buildStreamers()
         buildActors()
         podX = centerX
         crosshair.position = aimRest
@@ -318,6 +335,83 @@ final class GameScene: SKScene {
         }
     }
 
+    // the parallax layers: craters pouring along the surface band, streaks
+    // running down the walls, energy pulses racing the rails
+    private func buildStreamers() {
+        for i in 0..<Tuning.surfaceStreamerCount {
+            let node: SKNode
+            if i % 2 == 0 {
+                let crater = SKShapeNode(ellipseOf: Tuning.surfaceFeatureSize)
+                crater.fillColor = Palette.rockSlopeShade
+                crater.strokeColor = Palette.edgeLight
+                crater.lineWidth = Tuning.strokeWidth / 2
+                node = crater
+            } else {
+                node = SKSpriteNode(color: Palette.dirtLight,
+                                    size: CGSize(width: Tuning.surfaceFeatureSize.height,
+                                                 height: Tuning.surfaceFeatureSize.height))
+            }
+            addStreamer(node, .surface, phase: Double(i) / Double(Tuning.surfaceStreamerCount))
+        }
+        for i in 0..<Tuning.wallStreakCount {
+            let node = SKSpriteNode(color: Palette.edgeLight, size: Tuning.wallStreakSize)
+            addStreamer(node, .wall, phase: Double(i) / Double(Tuning.wallStreakCount))
+        }
+        for i in 0..<Tuning.railPulseCount {
+            let node = SKSpriteNode(color: Palette.railHot, size: Tuning.railPulseSize)
+            node.blendMode = .add
+            addStreamer(node, .pulse, phase: Double(i) / Double(Tuning.railPulseCount))
+        }
+    }
+
+    private func addStreamer(_ node: SKNode, _ flavor: StreamerFlavor, phase: Double) {
+        addChild(node)
+        streamers.append(Streamer(node: node, flavor: flavor,
+                                  nearX: streamerLane(flavor), depth: phase))
+    }
+
+    private func streamerLane(_ flavor: StreamerFlavor) -> CGFloat {
+        switch flavor {
+        case .surface:
+            let pad = Tuning.streamEdgePad
+            return Bool.random()
+                ? .random(in: pad...(leftWallX - pad))
+                : .random(in: (rightWallX + pad)...(size.width - pad))
+        case .wall:
+            let pad = Tuning.streamEdgePad
+            let a = CGFloat.random(
+                in: (Tuning.flatHalfWidth + pad)...(centerX - Tuning.trenchWallInset - pad))
+            return Bool.random() ? centerX - a : centerX + a
+        case .pulse:
+            return railXs.randomElement() ?? centerX
+        }
+    }
+
+    private func stepStreamers(_ dt: TimeInterval) {
+        for i in streamers.indices {
+            let rate: Double
+            switch streamers[i].flavor {
+            case .surface: rate = Tuning.streamRateSurface
+            case .wall: rate = Tuning.streamRateWall
+            case .pulse: rate = Tuning.streamRatePulse
+            }
+            streamers[i].depth += dt * Tuning.trackScrollPerSecond * forwardScale * rate
+            if streamers[i].depth >= 1 {
+                streamers[i].depth -= 1
+                streamers[i].nearX = streamerLane(streamers[i].flavor)
+            }
+            let s = streamers[i]
+            // surface features land on the visible cap band, not the rim edge
+            let near = s.flavor == .surface
+                ? CGPoint(x: s.nearX, y: Tuning.trenchRimY - Tuning.craterDropY)
+                : CGPoint(x: s.nearX, y: trackY(s.nearX))
+            let (p, f) = projectPoint(near, s.depth)
+            s.node.position = p
+            s.node.setScale(f)
+            s.node.alpha = Tuning.streamAlphaBase + Tuning.streamAlphaGain * CGFloat(s.depth)
+        }
+    }
+
     private func buildActors() {
         skimmer.texture = Sprites.skimmer
         skimmer.size = Tuning.skimmerSize
@@ -364,9 +458,11 @@ final class GameScene: SKScene {
         let dt = lastTime == 0 ? 0 : min(currentTime - lastTime, Tuning.maxFrameDt)
         lastTime = currentTime
         guard dt > 0 else { return }
+        worldTime += dt
         stepCrosshair(dt)
         stepPod(dt)
         stepStripes(dt)
+        stepStreamers(dt)
         stepJunk(dt)
         stepSkimmer(dt)
     }
@@ -448,7 +544,15 @@ final class GameScene: SKScene {
                 break
             }
         }
-        pod.position = CGPoint(x: podX, y: trackY(podX) + Tuning.podSize.height / 2)
+        // rail rumble: the render position vibrates, the logic position does not
+        var renderX = podX
+        if isRailed {
+            renderX += CGFloat(sin(worldTime * 2 * .pi * Tuning.railShakeHz))
+                * Tuning.railShakeAmplitude
+            engineGlow.alpha = Tuning.engineFlickerBase + Tuning.engineFlickerAmp
+                * CGFloat(sin(worldTime * 2 * .pi * Tuning.engineFlickerHz))
+        }
+        pod.position = CGPoint(x: renderX, y: trackY(podX) + Tuning.podSize.height / 2)
         if podAirRemaining > 0 {
             let t = 1 - podAirRemaining / Tuning.podHopSeconds
             pod.position.y += Tuning.podHopHeight * CGFloat(sin(Double.pi * t))

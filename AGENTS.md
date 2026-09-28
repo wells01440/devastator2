@@ -56,9 +56,14 @@ expanded to the usable frame (wallInset 44, rim 308, floor 40, rails
 at +-160); busy lunar terrain (horizon mounds, craters, dirt speckle);
 alien skeletons buried in the dirt, Dig Dug style (Tuning
 skeletonSpots); the opponent is a detailed frisbee UFO with a glass
-dome, running lights, and tractor glow. Remaining passes, roughly in
-order: brink-time danger reddening, level palette themes, parallax,
-diegetic score/state readouts, cut-scene beats, music through
+dome, running lights, and tractor glow. Pass 4 (done): parallax and
+urgency — three streamer layers pour out of the vanishing point at
+forward speed (surface craters on the cap band fastest, wall streaks,
+additive rail pulses fastest of all as energy), the pod rumbles and
+its engine flickers while railed, and the depth stripes thickened.
+Railing doubles the whole world's rush through forwardScale. Remaining
+passes, roughly in order: brink-time danger reddening, level palette
+themes, diegetic score/state readouts, cut-scene beats, music through
 AVAudioEngine per Assets/Music/MANIFEST.md, pads via GameController.
 
 Controls: arrows aim, space fires, double-tap up hops, double-tap down

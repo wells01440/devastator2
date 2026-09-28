@@ -126,10 +126,33 @@ enum Tuning {
     static let joltOutSeconds = 0.08
     static let sparkRadius: CGFloat = 10
     static let junkFadeSeconds = 0.15
-    static let stripeCount = 6
+    static let stripeCount = 9
     static let stripeSampleStep: CGFloat = 8
     static let stripeAlphaBase: CGFloat = 0.12
-    static let stripeAlphaGain: CGFloat = 0.28
+    static let stripeAlphaGain: CGFloat = 0.34
+
+    // parallax streamers: the world pours out of the vanishing point at
+    // forward speed. Surface is nearest so it runs fastest; rail pulses are
+    // energy, not matter.
+    static let surfaceStreamerCount = 8
+    static let wallStreakCount = 6
+    static let railPulseCount = 6
+    static let streamRateSurface = 1.8
+    static let streamRateWall = 1.2
+    static let streamRatePulse = 3.0
+    static let streamEdgePad: CGFloat = 10
+    static let surfaceFeatureSize = CGSize(width: 16, height: 5)
+    static let wallStreakSize = CGSize(width: 2, height: 10)
+    static let railPulseSize = CGSize(width: 5, height: 4)
+    static let streamAlphaBase: CGFloat = 0.2
+    static let streamAlphaGain: CGFloat = 0.8
+
+    // the rumble of riding a hot rail
+    static let railShakeAmplitude: CGFloat = 1.2
+    static let railShakeHz = 13.0
+    static let engineFlickerHz = 24.0
+    static let engineFlickerBase: CGFloat = 0.65
+    static let engineFlickerAmp: CGFloat = 0.35
     static let railLineWidth: CGFloat = 3
     static let railIdleAlpha: CGFloat = 0.4
     static let laneLineAlpha: CGFloat = 0.22
