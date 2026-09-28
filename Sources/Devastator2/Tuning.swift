@@ -33,8 +33,9 @@ enum Tuning {
     static let skimmerWeaveHz = 0.35
     static let trackScrollPerSecond = 0.55 // stripe sweep, track lengths per second
 
-    // the monorail: home base. Notched in, controls are normal and you go
-    // fast; off the rail you are slower and the controls go wonky.
+    // the monorails: home base, three lanes. Notched in, controls are normal
+    // and you go fast; off the rail you are slower and the controls go wonky.
+    static let railOffsetsX: [CGFloat] = [-64, 0, 64] // lane positions from trench center
     static let railClockScale = 0.5 // pass clock drain while railed
     static let railScrollScale = 2.0 // the go-fast read
     static let railSnapDistance: CGFloat = 12 // pod over the bump notches in
@@ -51,7 +52,7 @@ enum Tuning {
     static let trenchBottomY: CGFloat = 64
     static let trenchWallInset: CGFloat = 72
     static let flatHalfWidth: CGFloat = 88 // flat floor half width; slopes rise beyond it
-    static let railBumpHalfWidth: CGFloat = 14 // the rail is a bump on the floor
+    static let railBumpHalfWidth: CGFloat = 14 // each rail is a bump on the floor
     static let railBumpHeight: CGFloat = 6
     static let aimRestHeight: CGFloat = 40 // gravity's aim target above the floor
     static let crosshairRadius: CGFloat = 9
