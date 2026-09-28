@@ -145,23 +145,25 @@ final class GameScene: SKScene {
             addChild(star)
         }
 
+        // Earthrise: the limb sits below the rim, so the horizon and the
+        // slot's interior occlude it. Risen, still rising.
         let earth = SKSpriteNode(texture: Sprites.earth)
         earth.size = Tuning.earthSize
         earth.position = CGPoint(x: Tuning.earthX, y: Tuning.earthY)
         addChild(earth)
 
-        // the kablammo flash washes the whole sky
-        skyFlash.color = Palette.flash
-        skyFlash.size = CGSize(width: size.width, height: size.height - Tuning.trenchRimY)
-        skyFlash.position = CGPoint(x: centerX, y: (size.height + Tuning.trenchRimY) / 2)
-        skyFlash.alpha = 0
-        addChild(skyFlash)
-
-        let horizon = SKSpriteNode(color: Palette.horizonGlow,
-                                   size: CGSize(width: size.width,
-                                                height: Tuning.horizonGlowHeight))
-        horizon.position = CGPoint(x: centerX, y: Tuning.trenchRimY)
-        addChild(horizon)
+        // the slot's interior: nearer than the horizon, so it hides the limb
+        let interior = CGMutablePath()
+        interior.move(to: CGPoint(x: leftWallX, y: Tuning.trenchRimY))
+        for x in stride(from: leftWallX, through: rightWallX, by: Tuning.trackSampleStep) {
+            interior.addLine(to: CGPoint(x: x, y: trackY(x)))
+        }
+        interior.addLine(to: CGPoint(x: rightWallX, y: Tuning.trenchRimY))
+        interior.closeSubpath()
+        let interiorNode = SKShapeNode(path: interior)
+        interiorNode.fillColor = Palette.trenchAir
+        interiorNode.strokeColor = .clear
+        addChild(interiorNode)
 
         let path = CGMutablePath()
         path.move(to: CGPoint(x: 0, y: 0))
@@ -210,6 +212,66 @@ final class GameScene: SKScene {
                CGPoint(x: size.width, y: rimY),
                CGPoint(x: size.width, y: rimY - bevel),
                CGPoint(x: rightWallX, y: rimY - bevel)], Palette.surface)
+
+        // busy lunar terrain: mounds breaking the horizon on the surface strips
+        for spot in Tuning.moundSpots {
+            let mound = SKShapeNode(ellipseOf: CGSize(width: spot.rx * 2, height: spot.ry * 2))
+            mound.position = CGPoint(x: spot.x, y: rimY)
+            mound.fillColor = Palette.surface
+            mound.strokeColor = .clear
+            addChild(mound)
+        }
+        for spot in Tuning.craterSpots {
+            let lip = SKShapeNode(ellipseOf: CGSize(width: spot.rx * 2, height: spot.ry * 2))
+            lip.position = CGPoint(x: spot.x, y: rimY - Tuning.craterDropY + 1)
+            lip.fillColor = Palette.edgeLight
+            lip.strokeColor = .clear
+            addChild(lip)
+            let bowl = SKShapeNode(ellipseOf: CGSize(width: spot.rx * 2, height: spot.ry * 2))
+            bowl.position = CGPoint(x: spot.x, y: rimY - Tuning.craterDropY)
+            bowl.fillColor = Palette.rockSlopeShade
+            bowl.strokeColor = .clear
+            addChild(bowl)
+        }
+        // dirt speckle: rubble in the cross-section, golden-ratio scattered
+        var speckled = 0
+        var probe = 0
+        while speckled < Tuning.speckleCount && probe < Tuning.speckleCount * 10 {
+            probe += 1
+            let x = CGFloat((Double(probe) * 0.61803).truncatingRemainder(dividingBy: 1))
+                * size.width
+            let y = CGFloat((Double(probe) * 0.38197).truncatingRemainder(dividingBy: 1))
+                * Tuning.trenchRimY
+            guard y < baseProfileY(x) - Tuning.speckleMargin else { continue }
+            let side = Tuning.speckleSizes[speckled % Tuning.speckleSizes.count]
+            let fleck = SKSpriteNode(color: speckled % 2 == 0 ? Palette.dirtLight
+                                                              : Palette.dirtDark,
+                                     size: CGSize(width: side, height: side))
+            fleck.position = CGPoint(x: x, y: y)
+            addChild(fleck)
+            speckled += 1
+        }
+        // and the ones who dug here before us
+        for spot in Tuning.skeletonSpots {
+            let bones = SKSpriteNode(texture: Sprites.skeleton)
+            bones.size = Tuning.skeletonSize
+            bones.position = spot
+            bones.alpha = Tuning.skeletonAlpha
+            addChild(bones)
+        }
+
+        let horizon = SKSpriteNode(color: Palette.horizonGlow,
+                                   size: CGSize(width: size.width,
+                                                height: Tuning.horizonGlowHeight))
+        horizon.position = CGPoint(x: centerX, y: rimY)
+        addChild(horizon)
+
+        // the kablammo flash washes the whole sky, Earth included
+        skyFlash.color = Palette.flash
+        skyFlash.size = CGSize(width: size.width, height: size.height - rimY)
+        skyFlash.position = CGPoint(x: centerX, y: (size.height + rimY) / 2)
+        skyFlash.alpha = 0
+        addChild(skyFlash)
 
         // lane lines: the rails run from the horizon out into their bumps,
         // so riding one is visible

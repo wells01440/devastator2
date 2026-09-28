@@ -49,8 +49,15 @@ while railed, kill fragments. Pass 2 (done): Earth big — it hangs over
 everything, it is the point; junk is battle debris (wing, hull chunk,
 girder, bits) in varied sizes; the aim is caged inside the slot
 (clampAim: between the walls, above the track, below the rim), which
-is the Tempest feel. Remaining passes, roughly in order: brink-time
-danger reddening, level palette themes, trench dressing and parallax,
+is the Tempest feel. Pass 3 (done): Earthrise — a 32x32 Earth at 96pt
+with clouds, desert, deep ocean and a night-side terminator, its lower
+limb occluded by the horizon and the slot's interior fill; the slot
+expanded to the usable frame (wallInset 44, rim 308, floor 40, rails
+at +-160); busy lunar terrain (horizon mounds, craters, dirt speckle);
+alien skeletons buried in the dirt, Dig Dug style (Tuning
+skeletonSpots); the opponent is a detailed frisbee UFO with a glass
+dome, running lights, and tractor glow. Remaining passes, roughly in
+order: brink-time danger reddening, level palette themes, parallax,
 diegetic score/state readouts, cut-scene beats, music through
 AVAudioEngine per Assets/Music/MANIFEST.md, pads via GameController.
 

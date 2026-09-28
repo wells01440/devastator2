@@ -43,19 +43,42 @@ enum Sprites {
         "E": Palette.podEngine,
     ])
 
-    // the Skimmer from behind, fleeing: marker fin up top, engines at you
+    // the opponent: a saucer, frisbee-proud. Glass dome with a glint,
+    // running lights around the rim, tractor glow underneath.
     static let skimmer = texture([
-        ".....RR.....",
-        "...WWWWWW...",
-        "..WWWWWWWW..",
-        ".WEEWWWWEEW.",
-        ".WEEWWWWEEW.",
-        "..W..WW..W..",
-        "....E..E....",
+        ".........GGGG.........",
+        "........GggGGGG.......",
+        ".......GGGGGGGGG......",
+        "....MMMMMMMMMMMMMM....",
+        ".MMMMMMMMMMMMMMMMMMMM.",
+        "MLMMLLMMLMMLLMMLLMMLLM",
+        ".mmmmmmmmmmmmmmmmmmmm.",
+        "...mmmEEEEEEEEEEmmm...",
+        ".....mEEEEEEEEEEm.....",
+        ".......EE....EE.......",
     ], [
-        "W": Palette.enemyHull,
-        "R": Palette.enemyMarker,
+        "G": Palette.ufoGlass,
+        "g": Palette.ufoGlint,
+        "M": Palette.ufoHull,
+        "m": Palette.ufoHullDark,
+        "L": Palette.ufoLight,
         "E": Palette.enemyEngine,
+    ])
+
+    // buried in the dirt, Dig Dug style
+    static let skeleton = texture([
+        "...BBBB.....",
+        "..BBBBBB....",
+        "..B.BB.B....",
+        "..BBBBBB....",
+        "...B..B.....",
+        "....BB......",
+        "..BBBBBB....",
+        "....BB......",
+        ".BBBBBBBB...",
+        "....BB......",
+    ], [
+        "B": Palette.bone,
     ])
 
     // battle debris on the tracks: pieces of craft, bits and bobs
@@ -111,37 +134,48 @@ enum Sprites {
         ]), size: CGSize(width: 10, height: 8)),
     ]
 
-    // what you are defending. It hangs over everything; that is the point.
+    // Earthrise. Day on the west limb, the terminator sweeping the east
+    // into night, clouds streaking the oceans. The fabulous shot.
     static let earth = texture([
-        "...........AA...........",
-        ".......AAAAAAAAAA.......",
-        ".....AIIIIIIIIIIIIA.....",
-        "....AIIOOOOONNOOOIIA....",
-        "...AIOOOONNNNOOOOOOIA...",
-        "..AOOOONNNNNNOOOOOOOOA..",
-        "..AOOONNNNNNNNOOODDOOA..",
-        ".AOOONNNNNNNNNOODDDOOOA.",
-        ".AOODNNNNNNNOOOODDDOOOA.",
-        "AOODDNNNNNOOOOOODDOOOOOA",
-        "AOOODDNNNOOOOOOOOOOONOOA",
-        "AOOOODNNOOOOOOOOOONNNOOA",
-        "AOOOOOOOOOOOOOOOONNNNOOA",
-        "AODOOOOOOOOOOOOONNNNNOOA",
-        "AODDOOOOOOOOOOOONNNNOOOA",
-        ".AODDOOOOOOOOOONNNOOOOA.",
-        ".AOODOOOOOOOOOONNOOOOOA.",
-        "..AOOOOOOONOOOOOOOOOOA..",
-        "..AOOOOOONNNOOOOOOOOOA..",
-        "...AOOOOONNOOOOOOOOIA...",
-        "....AIOOOOOOOOOOIIIA....",
-        ".....AIIIIIIIIIIIIA.....",
-        ".......AAAAAAAAAA.......",
-        "...........AA...........",
+        "...............AA...............",
+        "..........AACCOOOOTTAA..........",
+        "........ACCCCOOOOOOTTTTA........",
+        "......ACCOOOOOCCOOOOTTTTTA......",
+        ".....AOCOOOONNOOCCOOOTTTTTA.....",
+        "....AOOOOONNNNOOOCCOOOTTTTTA....",
+        "...AOOOONNNNNNOOOOCCOOTTTTTTA...",
+        "...AOONNNNSNNNOOOOOCCOTTTTTTA...",
+        "..AOONNNSSNNNOOOOOOCCCOTTTTTTA..",
+        ".AOONNSSSNNOOOOOOOOCCCOOTTTTTTA.",
+        ".AOODNNSSNNOOOOOOOCCCOOOTTTTTTA.",
+        ".AOODDNNNNOOOOOOOOCCOOOOTTTTTTA.",
+        "AOODDDNNOOOOOOOOOOCCCOOOTTTTTTTA",
+        "AOOODDOOOOOOOCCOOOOCCOOOTTTTTTTA",
+        "AOOOODOOOOOOCCCCOOOOOOOOTTTTTTTA",
+        "ACOOOOOOOOOCCCCCCOOOOOOOTTTTTTTA",
+        "ACCOOOOOOOOOCCCCCOOOOOOOTTTTTTTA",
+        "AOCCOOOOOOOOOCCCOOOOONOOTTTTTTTA",
+        "AOOCCOOOOOOOOOOOOOOONNNOTTTTTTTA",
+        "AOOOCCOOOOOOOOOOOOOONNNNOTTTTTTA",
+        ".AOOOOCCCOOOOOOOOONNNNNOTTTTTTA.",
+        ".AOOOOOCCCOOOOOOOONNNNOOTTTTTTA.",
+        ".AOOOOOOCCCOOOOOOONNNOOOTTTTTTA.",
+        "..AOOOOOOOCCCOOOOOONNOOTTTTTTA..",
+        "...ADOOOOOOOCCCOOOOOOTTTTTTTA...",
+        "...ADDOOOOOOOCCCOOOOOTTTTTTTA...",
+        "....ADDDOOOOOOOCCOOOOTTTTTTA....",
+        ".....AADDOOOOOOOCOOOTTTTTAA.....",
+        "......AADDOOOOOOOOOTTTTTAA......",
+        "........AAADOOOOOOTTTAAA........",
+        "..........AAAOOOOTTAAA..........",
+        "...............AA...............",
     ], [
         "A": Palette.earthAtmos,
-        "I": Palette.earthIce,
         "O": Palette.earthOcean,
         "D": Palette.earthOceanDeep,
         "N": Palette.earthLand,
+        "S": Palette.earthSand,
+        "C": Palette.earthCloud,
+        "T": Palette.earthNight,
     ])
 }

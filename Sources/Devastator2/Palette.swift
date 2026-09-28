@@ -9,7 +9,11 @@ enum Palette {
     static let horizonGlow = SKColor(red: 0.45, green: 0.48, blue: 0.60, alpha: 1)
 
     // the slot
+    static let trenchAir = SKColor(red: 0.05, green: 0.05, blue: 0.10, alpha: 1)
     static let rockBody = SKColor(red: 0.16, green: 0.17, blue: 0.21, alpha: 1)
+    static let dirtLight = SKColor(red: 0.22, green: 0.23, blue: 0.27, alpha: 1)
+    static let dirtDark = SKColor(red: 0.11, green: 0.12, blue: 0.15, alpha: 1)
+    static let bone = SKColor(red: 0.75, green: 0.73, blue: 0.62, alpha: 1)
     static let rockSlopeLit = SKColor(red: 0.30, green: 0.31, blue: 0.37, alpha: 1)
     static let rockSlopeShade = SKColor(red: 0.22, green: 0.23, blue: 0.28, alpha: 1)
     static let rockFloor = SKColor(red: 0.26, green: 0.27, blue: 0.32, alpha: 1)
@@ -27,6 +31,11 @@ enum Palette {
     static let enemyHull = SKColor(red: 0.58, green: 0.46, blue: 0.40, alpha: 1)
     static let enemyMarker = SKColor(red: 1.0, green: 0.35, blue: 0.25, alpha: 1)
     static let enemyEngine = SKColor(red: 1.0, green: 0.62, blue: 0.30, alpha: 1)
+    static let ufoGlass = SKColor(red: 0.60, green: 0.85, blue: 0.90, alpha: 1)
+    static let ufoGlint = SKColor(red: 0.95, green: 1.0, blue: 1.0, alpha: 1)
+    static let ufoHull = SKColor(red: 0.72, green: 0.74, blue: 0.80, alpha: 1)
+    static let ufoHullDark = SKColor(red: 0.42, green: 0.44, blue: 0.52, alpha: 1)
+    static let ufoLight = SKColor(red: 1.0, green: 0.85, blue: 0.30, alpha: 1)
     static let junkDark = SKColor(red: 0.28, green: 0.26, blue: 0.24, alpha: 1)
     static let junkLight = SKColor(red: 0.48, green: 0.45, blue: 0.40, alpha: 1)
 
@@ -35,7 +44,9 @@ enum Palette {
     static let earthOcean = SKColor(red: 0.15, green: 0.35, blue: 0.80, alpha: 1)
     static let earthOceanDeep = SKColor(red: 0.10, green: 0.24, blue: 0.60, alpha: 1)
     static let earthLand = SKColor(red: 0.25, green: 0.60, blue: 0.30, alpha: 1)
-    static let earthIce = SKColor(red: 0.90, green: 0.96, blue: 1.0, alpha: 1)
+    static let earthSand = SKColor(red: 0.78, green: 0.66, blue: 0.40, alpha: 1)
+    static let earthCloud = SKColor(red: 0.96, green: 0.97, blue: 1.0, alpha: 1)
+    static let earthNight = SKColor(red: 0.04, green: 0.05, blue: 0.12, alpha: 1)
 
     // interface and effects
     static let reticle = SKColor(red: 0.55, green: 1.0, blue: 0.65, alpha: 1)

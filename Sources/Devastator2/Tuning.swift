@@ -52,7 +52,7 @@ enum Tuning {
 
     // the monorails: home base, three lanes. Notched in, controls are normal
     // and you go fast; off the rail you are slower and the controls go wonky.
-    static let railOffsetsX: [CGFloat] = [-136, 0, 136] // wall centers and the floor
+    static let railOffsetsX: [CGFloat] = [-160, 0, 160] // wall centers and the floor
     static let railClockScale = 0.5 // pass clock drain while railed
     static let railScrollScale = 2.0 // the go-fast read
     static let railSnapDistance: CGFloat = 12 // pod over the bump notches in
@@ -62,18 +62,18 @@ enum Tuning {
     static let railDoubleTapSeconds = 0.3 // double-tap down = clunk off in place
     static let wonkAimDrag: CGFloat = 0.25 // off-rail, pod yaw smears the aim
 
-    // geometry, scene points
-    static let trenchRimY: CGFloat = 296
-    static let trenchBottomY: CGFloat = 64
-    static let trenchWallInset: CGFloat = 72
-    static let flatHalfWidth: CGFloat = 88 // flat floor half width; slopes rise beyond it
+    // geometry, scene points. The slot fills the usable frame.
+    static let trenchRimY: CGFloat = 308
+    static let trenchBottomY: CGFloat = 40
+    static let trenchWallInset: CGFloat = 44
+    static let flatHalfWidth: CGFloat = 108 // flat floor half width; slopes rise beyond it
     static let railBumpHalfWidth: CGFloat = 14 // each rail is a bump on the floor
     static let railBumpHeight: CGFloat = 6
     static let aimRestHeight: CGFloat = 40 // gravity's aim target above the floor
     static let crosshairRadius: CGFloat = 9
     static let podSize = CGSize(width: 28, height: 16)
-    static let skimmerSize = CGSize(width: 24, height: 14)
-    static let passRingRadius: CGFloat = 22
+    static let skimmerSize = CGSize(width: 44, height: 20)
+    static let passRingRadius: CGFloat = 28
     static let junkScaleMin: CGFloat = 0.7 // debris size spread around its art size
     static let junkScaleMax: CGFloat = 1.4
     static let junkSpawnSeconds = 2.4
@@ -87,8 +87,25 @@ enum Tuning {
     static let starAlphas: [CGFloat] = [1, 0.7, 0.45]
     static let horizonGlowHeight: CGFloat = 3
     static let earthX: CGFloat = 150
-    static let earthY: CGFloat = 340
-    static let earthSize = CGSize(width: 72, height: 72)
+    static let earthY: CGFloat = 334 // limb below the rim: risen, still rising
+    static let earthSize = CGSize(width: 96, height: 96)
+
+    // terrain dressing: positions and shapes are art
+    static let moundSpots: [(x: CGFloat, rx: CGFloat, ry: CGFloat)] = [
+        (10, 14, 5), (34, 9, 4), (478, 12, 5), (502, 8, 3),
+    ]
+    static let craterSpots: [(x: CGFloat, rx: CGFloat, ry: CGFloat)] = [
+        (22, 7, 2.5), (490, 6, 2.0),
+    ]
+    static let craterDropY: CGFloat = 6
+    static let speckleCount = 42
+    static let speckleMargin: CGFloat = 10
+    static let speckleSizes: [CGFloat] = [2, 3, 2, 4]
+    static let skeletonSize = CGSize(width: 24, height: 20)
+    static let skeletonAlpha: CGFloat = 0.55
+    static let skeletonSpots: [CGPoint] = [
+        CGPoint(x: 22, y: 150), CGPoint(x: 490, y: 96), CGPoint(x: 210, y: 16),
+    ]
     static let engineGlowSize = CGSize(width: 12, height: 4)
     static let railGlowWidth: CGFloat = 4
     static let tracerGlowWidth: CGFloat = 2
